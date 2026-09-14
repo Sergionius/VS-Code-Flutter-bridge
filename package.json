@@ -1,0 +1,60 @@
+{
+  "name": "pi-flutter-refresh-bridge",
+  "displayName": "Pi Flutter Refresh Bridge",
+  "description": "Executes and acknowledges Dart-Code hot reload/restart requests from pi.",
+  "version": "0.2.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:pubspec.yaml",
+    "onCommand:piFlutterRefreshBridge.hotReload",
+    "onCommand:piFlutterRefreshBridge.hotRestart",
+    "onCommand:piFlutterRefreshBridge.diagnose"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "piFlutterRefreshBridge.hotReload",
+        "title": "Pi Flutter Bridge: Hot Reload"
+      },
+      {
+        "command": "piFlutterRefreshBridge.hotRestart",
+        "title": "Pi Flutter Bridge: Hot Restart"
+      },
+      {
+        "command": "piFlutterRefreshBridge.diagnose",
+        "title": "Pi Flutter Bridge: Diagnose"
+      }
+    ],
+    "configuration": {
+      "title": "Pi Flutter Refresh Bridge",
+      "properties": {
+        "piFlutterRefreshBridge.signalFile": {
+          "type": "string",
+          "default": ".dart_tool/pi_flutter_refresh/request.json",
+          "description": "Workspace-relative request file written by pi."
+        },
+        "piFlutterRefreshBridge.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show auto-hiding VS Code status-bar messages for refresh results."
+        },
+        "piFlutterRefreshBridge.reloadFallbackToRestart": {
+          "type": "boolean",
+          "default": true,
+          "description": "If Dart-Code hot reload throws, try hot restart."
+        },
+        "piFlutterRefreshBridge.messageTimeoutMs": {
+          "type": "number",
+          "default": 8000,
+          "description": "How long bridge status messages stay visible. Uses VS Code status bar to avoid sticky notifications."
+        }
+      }
+    }
+  }
+}
