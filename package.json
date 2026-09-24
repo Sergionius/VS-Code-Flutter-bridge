@@ -2,7 +2,7 @@
   "name": "pi-flutter-refresh-bridge",
   "displayName": "Pi Flutter Refresh Bridge",
   "description": "Executes and acknowledges Dart-Code hot reload/restart requests from pi.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "local",
   "engines": {
     "vscode": "^1.80.0"

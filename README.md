@@ -6,7 +6,7 @@ Local VS Code bridge for confirmed Flutter hot reload/restart requests from pi.
 
 1. Pi atomically writes `.dart_tool/pi_flutter_refresh/request.json` with a unique request ID.
 2. The extension validates the request and checks that the active debug session is a Dart session from the same workspace.
-3. It invokes `dart.hotReload` or `dart.hotRestart`.
+3. It invokes `dart.hotReload` or `flutter.hotRestart`.
 4. It atomically writes `.dart_tool/pi_flutter_refresh/responses/<requestId>.json`.
 5. Pi reports the confirmed result or times out instead of claiming success after only writing a file.
 

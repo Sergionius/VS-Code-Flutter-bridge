@@ -125,7 +125,7 @@ function activeWorkspaceDebugSession(folder) {
 }
 
 async function executeDartCommand(mode) {
-  const command = mode === 'restart' ? 'dart.hotRestart' : 'dart.hotReload';
+  const command = mode === 'restart' ? 'flutter.hotRestart' : 'dart.hotReload';
   await vscode.commands.executeCommand(command);
 }
 
