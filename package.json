@@ -4,6 +4,15 @@
   "description": "Executes and acknowledges Dart-Code hot reload/restart requests from pi.",
   "version": "0.2.1",
   "publisher": "local",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sergionius/VS-Code-Flutter-bridge.git"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check extension.js && npm test"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
