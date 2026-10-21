@@ -179,13 +179,18 @@ test('diagnose writes a full report without a workspace or debug session', async
   });
   const extension = loadExtensionWithMock(mock.vscode);
   extension.activate(box.context);
+  setup.installSkill('claude', { homeDir: box.home, sourceRoot: REPO_ROOT });
 
   await mock.registered.get('piFlutterRefreshBridge.diagnose')();
   const report = lines.join('\n');
   assert.match(report, /extension 0\.4\.0-test/);
-  assert.match(report, /sender: OK/);
+  assert.match(report, /\nsender: OK/);
+  assert.match(report, /\n    hook script: OK/);
+  assert.doesNotMatch(report, /\\n    hook script/);
+  assert.doesNotMatch(report, /sender: sender:/);
   assert.match(report, /Pi package: not installed/);
   assert.match(report, /Codex skill: not installed/);
+  assert.match(report, /Claude Code skill: OK .*manual requests require a shell tool/);
   assert.match(report, /Claude Code hooks: not configured/);
   assert.match(report, /Flutter workspace: no/);
   assert.match(report, /active debug session: none/);

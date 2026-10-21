@@ -25,7 +25,7 @@ The bridge watches a workspace-local file under `.dart_tool`, so requests should
 git clone https://github.com/Sergionius/flutter-agent-refresh.git
 cd flutter-agent-refresh
 npx @vscode/vsce package
-code --install-extension flutter-agent-refresh-0.4.0.vsix
+code --install-extension flutter-agent-refresh-0.4.1.vsix
 ```
 
 Requires VS Code 1.80+, the Dart/Flutter extension, Bash, Python 3, and Node.js 22.19+ for development. The Pi integration additionally requires the `pi` CLI.
@@ -46,7 +46,7 @@ Run **Flutter Agent Refresh: Set Up Agent** from the Command Palette, choose an 
 | Codex | `~/.codex/skills/flutter-refresh/` | Opt-in hooks in `~/.codex/hooks.json` (`PostToolUse` records changes, `Stop` refreshes). Open Codex and run `/hooks` once to review and trust them — untrusted hooks never run. |
 | Claude Code | `~/.claude/skills/flutter-refresh/` | Opt-in hooks in `~/.claude/settings.json` (same events). Restart Claude Code sessions to load them. |
 
-The skill teaches the agent when to request `reload` (UI-only changes) versus `restart` (models, constructors, `main.dart`, pubspec, generated code, bootstrap/DI/config) and how to call the shared sender.
+The skill teaches the agent when to request `reload` (UI-only changes) versus `restart` (models, constructors, `main.dart`, pubspec, generated code, bootstrap/DI/config) and how to call the shared sender. **Manual Claude Code skill execution requires an agent-accessible Bash tool.** In a Claude session without Bash, `/flutter-refresh` can load the skill but cannot send a request; a user-run `! bash ...` tests the sender, not the skill. For those sessions, enable the automatic hooks (tested separately) or use the VS Code Hot Reload / Hot Restart commands.
 
 How automatic hooks choose the mode: `PostToolUse` records app-relevant changes (mirroring the Pi package heuristics), and the final `Stop` performs at most one refresh per turn — `restart` when restart-worthy files or new class members were touched, otherwise `reload`. Non-Flutter projects never trigger a request.
 
@@ -80,6 +80,7 @@ Environment variables for the sender and hooks: `PI_FLUTTER_REFRESH_TIMEOUT_SECO
 - Hooks are installed at the user level; the sender skips non-Flutter projects, so they stay silent elsewhere.
 - The reload/restart heuristics exist twice (TypeScript for Pi, Python for the hooks); both are covered by tests but can drift over time.
 - Codex requires explicit `/hooks` trust after every change to the hook definition; this is Codex security policy, not a bug.
+- A Claude Code skill cannot invoke the sender in sessions without an agent-accessible shell tool; automatic hooks run independently of the model's tool access.
 - The Marketplace publisher id (`sergionius`) is registered. Publishing still requires publisher credentials and manual QA.
 
 ## Development

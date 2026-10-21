@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Fixed diagnostic line breaks and removed the duplicated `sender:` label.
+- Documented the Claude Code skill's shell-tool requirement; automatic hooks still work without a model-accessible shell tool.
+
 ## 0.4.0
 
 - Added **Flutter Agent Refresh: Set Up Agent**, a wizard that installs Flutter refresh for Pi, Codex, or Claude Code: a portable skill, opt-in automatic hooks (PostToolUse + Stop), and the shared sender.

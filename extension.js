@@ -347,14 +347,15 @@ function agentDiagnosticLines() {
     const label = agentSetup.AGENTS[agent].label;
     const skill = agentSetup.skillStatus(agent, { homeDir: home });
     const hooks = agentSetup.hooksStatus(agent, { homeDir: home });
-    lines.push(`${label} skill: ${skill === 'ours' ? 'OK' : skill === 'foreign' ? 'FOREIGN (not managed by this bridge)' : 'not installed'} (${agentSetup.skillDirectory(agent, home)})`);
+    const skillState = skill === 'ours' ? 'OK' : skill === 'foreign' ? 'FOREIGN (not managed by this bridge)' : 'not installed';
+    lines.push(`${label} skill: ${skillState} (${agentSetup.skillDirectory(agent, home)})${agent === 'claude' && skill === 'ours' ? ' — manual requests require a shell tool' : ''}`);
     lines.push(`${label} hooks: ${hooks.invalid ? 'INVALID JSON (fix manually)' : hooks.configured ? 'OK' : 'not configured'} (${hooks.file})`);
   }
   return lines;
 }
 
 function diagnosticBridgeLines() {
-  return agentDiagnosticLines().join('\\n    ');
+  return agentDiagnosticLines().join('\n    ');
 }
 
 function duplicateExtensionLines() {
@@ -492,7 +493,7 @@ async function setUpAgent(context, agent = undefined) {
 
     const notes = chosen === 'codex'
       ? '\n\nOpen Codex and run /hooks once to review and trust the new hooks; they do not run before that.'
-      : '\n\nRestart Claude Code sessions to load the new hooks.';
+      : '\n\nRestart Claude Code sessions to load new hooks. The manual skill requires a shell tool; automatic hooks also work without it.';
     const choice = await vscode.window.showInformationMessage(
       `${label} setup:\n\n${summary.map((line) => `• ${line}`).join('\n')}${notes}`,
       { modal: true },
@@ -606,7 +607,7 @@ function diagnose(context) {
     `signal: ${folder ? vscode.Uri.joinPath(folder.uri, signalFile()).fsPath : 'unavailable'}`,
     `active debug session: ${session ? `${session.name} (${session.type})` : 'none'}`,
     `session workspace: ${session && session.workspaceFolder ? session.workspaceFolder.uri.fsPath : 'none'}`,
-    `sender: ${diagnosticBridgeLines()}`,
+    diagnosticBridgeLines(),
     `duplicates: ${duplicateExtensionLines().join(' ') || 'none'}`,
   ];
   channel().clear();
