@@ -1,6 +1,6 @@
 # Pi Flutter Refresh Bridge
 
-Local VS Code extension for confirmed Flutter hot reload/restart requests from [pi-toolkit](https://github.com/Sergionius/pi-toolkit). It is installed locally, not published to the VS Code Marketplace.
+VS Code extension and independently installable [Pi](https://pi.dev) package for automatic Flutter hot reload/restart. The VS Code extension is installed locally, not published to the VS Code Marketplace.
 
 ## How it works
 
@@ -16,14 +16,22 @@ Hot reload falls back to hot restart when `piFlutterRefreshBridge.reloadFallback
 
 ## Install and use
 
-Requires VS Code 1.80+, the Dart/Flutter VS Code extension (Dart-Code), a Flutter project, and pi with [pi-toolkit](https://github.com/Sergionius/pi-toolkit) installed. This repository alone does not send refresh requests; pi-toolkit supplies the helper that writes them.
+Requires Pi, Node.js 22.19+, Python 3, Bash, VS Code 1.80+, Dart-Code, and a Flutter project. Install independently of pi-toolkit:
 
-1. In pi, run `/pi-toolkit-sync-vscode` to copy the bridge bundled with pi-toolkit into VS Code's extensions directory. For updates to that bundled copy, update pi-toolkit first, then run `/reload` and `/pi-toolkit-sync-vscode` again. Changes in this standalone repository do not automatically update pi-toolkit's bundled copy.
+```bash
+pi install git:github.com/Sergionius/VS-Code-Flutter-bridge
+```
+
+1. Run `/reload` in Pi, then `/pi-flutter-bridge-sync` to copy this repository's VS Code extension into VS Code's extensions directory. Run `/pi-flutter-bridge-doctor` to check the helper and installation.
 2. In VS Code, run `Developer: Reload Window` after installation or update.
 3. Open the Flutter project and start it using Run/Debug in that VS Code window.
-4. Let pi edit Flutter app files; pi-toolkit requests refresh automatically. Use `Pi Flutter Bridge: Diagnose` in the VS Code Command Palette to inspect the workspace, signal path, and active debug session.
+4. Let Pi edit Flutter app files; the Pi extension requests refresh automatically. Use `Pi Flutter Bridge: Diagnose` from the VS Code Command Palette to inspect the workspace, signal path, and active debug session.
 
-To try this repository's version directly, copy `package.json`, `extension.js`, `README.md`, and `LICENSE` into `~/.vscode/extensions/local.pi-flutter-refresh-bridge-0.2.1/` (or your VS Code extensions directory), then reload VS Code. The folder name must match the `publisher`, `name`, and `version` in `package.json`; pi-toolkit's sync command may overwrite it.
+After `pi update git:github.com/Sergionius/VS-Code-Flutter-bridge`, run `/reload`, `/pi-flutter-bridge-sync`, and `Developer: Reload Window` again. `PI_FLUTTER_REFRESH_DISABLED=1` disables automatic requests, `PI_FLUTTER_REFRESH_TIMEOUT_SECONDS` sets the response timeout (10 seconds by default), and `PI_FLUTTER_BRIDGE_EXTENSIONS_DIR` overrides the VS Code extensions directory.
+
+**Migrating from pi-toolkit:** Update pi-toolkit to the release without bundled Flutter support first and run `/reload`, then install this package and run `/reload` again. Check `~/.pi/agent/settings.json` and project settings for old direct `extensions/flutter-refresh.ts` paths, and remove them to prevent two listeners from issuing duplicate refresh requests. The old `/pi-toolkit-sync-vscode` and `/pi-toolkit-doctor` commands are replaced by the commands above. Keep other pi-toolkit resources installed. Roll back by removing this package and installing a previous pi-toolkit revision; do not load both Flutter extensions at once.
+
+To use only the VS Code extension without Pi, copy `package.json`, `extension.js`, `README.md`, and `LICENSE` into `~/.vscode/extensions/local.pi-flutter-refresh-bridge-0.3.0/` (or your VS Code extensions directory), then reload VS Code. The folder name must match the `publisher`, `name`, and `version` in `package.json`; the Pi sync command may overwrite it. Without the Pi package, you must send refresh requests yourself.
 
 The bridge watches a workspace-local file under `.dart_tool`, so requests should come only from a trusted workspace. It checks the request's workspace and the active Dart debug session before running a refresh.
 
@@ -46,7 +54,7 @@ Requests without a protocol version/request ID remain supported as legacy fire-a
 
 ## Development
 
-Run `npm run check` (Node.js 22 or newer) to syntax-check the extension and run the dependency-free tests. CI runs the same command on pushes and pull requests. The tests mock the VS Code API; they do not launch VS Code or a Flutter app.
+Run `npm run check` (Node.js 22.19 or newer, Python 3 and Bash) to syntax-check the extension and test the Pi extension, handshake, installer, and mocked VS Code API. CI runs the same command on pushes and pull requests. Tests do not launch VS Code or a Flutter app.
 
 ## License
 

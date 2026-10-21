@@ -1,8 +1,8 @@
 {
   "name": "pi-flutter-refresh-bridge",
   "displayName": "Pi Flutter Refresh Bridge",
-  "description": "Executes and acknowledges Dart-Code hot reload/restart requests from pi.",
-  "version": "0.2.1",
+  "description": "VS Code Flutter refresh bridge and optional Pi auto-refresh package.",
+  "version": "0.3.0",
   "publisher": "local",
   "license": "MIT",
   "repository": {
@@ -10,11 +10,21 @@
     "url": "https://github.com/Sergionius/VS-Code-Flutter-bridge.git"
   },
   "scripts": {
-    "test": "node --test",
-    "check": "node --check extension.js && npm test"
+    "test": "node --test test/bridge.test.js && node --experimental-strip-types --test test/pi-flutter-refresh.test.mjs test/pi-package.test.mjs",
+    "check": "node --check extension.js && npm test && bash test/pi-flutter-refresh.test.sh"
   },
   "engines": {
     "vscode": "^1.80.0"
+  },
+  "keywords": ["pi-package"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": { "optional": true }
+  },
+  "pi": {
+    "extensions": ["./pi/extensions/*.ts"]
   },
   "categories": ["Other"],
   "activationEvents": [
