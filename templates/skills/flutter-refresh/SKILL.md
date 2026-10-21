@@ -43,13 +43,13 @@ request that the VS Code extension confirms, and prints one summary line.
 Report that line to the user and do not claim success before the bridge
 confirms it.
 
-In Claude Code, this manual step requires the agent to have a shell tool (Bash).
-Loading `/flutter-refresh` does not grant one. If no shell tool is available,
-**do not claim the skill sent a request**. If the user enabled Automatic hooks,
-editing a Flutter file will trigger a separate confirmed refresh at the end of
-the turn. Otherwise, ask the user to use **Flutter Agent Refresh: Hot Reload**
-or **Hot Restart** in VS Code. A user-run `! bash ...` command tests the sender,
-not whether the skill can invoke it. Do not repeat failed tool searches.
+In Claude Code, this manual step requires an agent-accessible Bash tool.
+Loading `/flutter-refresh` does not grant one. If none is available, **do not
+claim the skill sent a request**. After the editing turn is complete, ask the
+user to enter `/flutter-reload` or `/flutter-restart` **alone in a new turn**.
+Those commands use a Claude host hook and do not require Bash in the model.
+If Automatic hooks are enabled, they refresh after edits without a manual
+request. A user-run `! bash ...` tests the sender, not the agent's skill.
 
 Exit codes: `0` confirmed (lines starting with `SKIPPED`/`WARN` are
 non-fatal) · `2` usage error · `3` no debug session · `4` workspace mismatch

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+- Added standalone Claude Code `/flutter-reload` and `/flutter-restart` commands. A `UserPromptExpansion` host hook sends a confirmed request without needing a model-accessible Bash tool; use the commands after editing, in a separate turn.
+- Claude manual command setup and removal preserve unrelated settings and remain separate from opt-in automatic hooks.
+
 ## 0.4.1
 
 - Fixed diagnostic line breaks and removed the duplicated `sender:` label.

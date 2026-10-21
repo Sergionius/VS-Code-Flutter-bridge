@@ -129,6 +129,22 @@ test('setUpAgent installs skill and hooks for Codex through the wizard', (t) => 
   });
 });
 
+test('Claude skill setup includes shell-free manual commands without enabling automatic hooks', async (t) => {
+  const box = sandbox(t);
+  const mock = makeVscodeMock();
+  const extension = loadExtensionWithMock(mock.vscode);
+  extension.activate(box.context);
+  mock.vscode.window.showQuickPick = async (items, options) => options?.canPickMany
+    ? items.filter((item) => item.value === 'skill')
+    : items.find((item) => item.value === 'claude');
+  await mock.registered.get('piFlutterRefreshBridge.setUpAgent')();
+  assert.equal(setup.claudeManualStatus({ homeDir: box.home }).configured, true);
+  assert.deepEqual(setup.claudeManualStatus({ homeDir: box.home }).skills, ['ours', 'ours']);
+  assert.equal(setup.hooksStatus('claude', { homeDir: box.home }).configured, false);
+  assert.match(mock.statusMessages.join('\n'), /UserPromptExpansion hook/);
+  extension.deactivate();
+});
+
 test('removeAgentIntegration removes skill, hooks, and the shared sender', async (t) => {
   const box = sandbox(t);
   const mock = makeVscodeMock();
@@ -136,6 +152,8 @@ test('removeAgentIntegration removes skill, hooks, and the shared sender', async
   extension.activate(box.context);
 
   setup.installSkill('claude', { homeDir: box.home, sourceRoot: REPO_ROOT });
+  for (const name of setup.CLAUDE_MANUAL_SKILLS) setup.installSkill('claude', { homeDir: box.home, sourceRoot: REPO_ROOT }, name);
+  setup.addClaudeManualHook({ homeDir: box.home });
   setup.addAgentHooks('claude', { homeDir: box.home });
 
   mock.vscode.window.showQuickPick = async (items) => items.find((item) => item.value === 'claude');
@@ -143,6 +161,8 @@ test('removeAgentIntegration removes skill, hooks, and the shared sender', async
 
   assert.equal(setup.skillStatus('claude', { homeDir: box.home }), 'missing');
   assert.equal(setup.hooksStatus('claude', { homeDir: box.home }).configured, false);
+  assert.equal(setup.claudeManualStatus({ homeDir: box.home }).configured, false);
+  assert.deepEqual(setup.claudeManualStatus({ homeDir: box.home }).skills, ['missing', 'missing']);
   assert.equal(fs.existsSync(path.join(box.home, '.pi-flutter-bridge')), false);
   extension.deactivate();
 });
@@ -191,6 +211,7 @@ test('diagnose writes a full report without a workspace or debug session', async
   assert.match(report, /Pi package: not installed/);
   assert.match(report, /Codex skill: not installed/);
   assert.match(report, /Claude Code skill: OK .*manual requests require a shell tool/);
+  assert.match(report, /Claude Code manual commands: not installed/);
   assert.match(report, /Claude Code hooks: not configured/);
   assert.match(report, /Flutter workspace: no/);
   assert.match(report, /active debug session: none/);

@@ -275,6 +275,47 @@ def last_line(text):
     return ""
 
 
+def send_mode(mode, cwd):
+    sender = sender_path()
+    if not os.path.isfile(sender):
+        return "sender not installed at %s; run Flutter Agent Refresh: Set Up Agent in VS Code" % sender
+    environment = dict(os.environ)
+    environment.setdefault("PI_FLUTTER_REFRESH_TIMEOUT_SECONDS", "10")
+    try:
+        completed = subprocess.run(
+            [sender, mode], cwd=cwd, env=environment,
+            capture_output=True, text=True, timeout=SENDER_TIMEOUT_SECONDS,
+        )
+        summary = (last_line(completed.stderr) if completed.returncode else last_line(completed.stdout))
+        return summary or last_line(completed.stdout) or "exit code %d" % completed.returncode
+    except subprocess.TimeoutExpired:
+        return "refresh timed out after %ds" % SENDER_TIMEOUT_SECONDS
+    except OSError as error:
+        return "could not run sender: %s" % error
+
+
+def manual_prompt(event):
+    if event.get("expansion_type") != "slash_command":
+        return {}
+    mode = {"flutter-reload": "reload", "flutter-restart": "restart"}.get(event.get("command_name"))
+    if not mode:
+        return {}
+    if str(event.get("command_args") or "").strip():
+        return {"decision": "block", "reason": "Run /flutter-%s alone, after editing, in a new turn." % mode}
+    cwd = event.get("cwd") or os.getcwd()
+    if not is_flutter_project(cwd):
+        return {"decision": "block", "reason": "flutter-bridge: not a Flutter project"}
+    summary = send_mode(mode, cwd)
+    if not summary.startswith("OK:"):
+        return {"decision": "block", "reason": "flutter-bridge: " + summary}
+    # If automatic hooks are also installed, Stop must not repeat this request.
+    try:
+        os.remove(state_file(event.get("session_id")))
+    except OSError:
+        pass
+    return {"systemMessage": "flutter-bridge: " + summary}
+
+
 def run_refresh(event):
     state_path = state_file(event.get("session_id"))
     try:
@@ -295,31 +336,7 @@ def run_refresh(event):
         return {}
 
     mode = "restart" if state.get("needsRestart") else "reload"
-    sender = sender_path()
-    if not os.path.isfile(sender):
-        return {"systemMessage": "flutter-bridge: sender not installed at %s; run Flutter Agent Refresh: Set Up Agent in VS Code" % sender}
-
-    environment = dict(os.environ)
-    environment.setdefault("PI_FLUTTER_REFRESH_TIMEOUT_SECONDS", "10")
-    try:
-        completed = subprocess.run(
-            [sender, mode],
-            cwd=event.get("cwd") or os.getcwd(),
-            env=environment,
-            capture_output=True,
-            text=True,
-            timeout=SENDER_TIMEOUT_SECONDS,
-        )
-        # The sender prints REQUESTED on stdout before waiting, but failures
-        # such as NO_DEBUG_SESSION and TIMEOUT go to stderr. Never report the
-        # request line as if it were a completed refresh.
-        summary = (last_line(completed.stderr) if completed.returncode else last_line(completed.stdout))
-        summary = summary or last_line(completed.stdout) or "exit code %d" % completed.returncode
-        return {"systemMessage": "flutter-bridge: " + summary}
-    except subprocess.TimeoutExpired:
-        return {"systemMessage": "flutter-bridge: refresh timed out after %ds" % SENDER_TIMEOUT_SECONDS}
-    except OSError as error:
-        return {"systemMessage": "flutter-bridge: could not run sender: %s" % error}
+    return {"systemMessage": "flutter-bridge: " + send_mode(mode, event.get("cwd") or os.getcwd())}
 
 
 def main():
@@ -331,6 +348,9 @@ def main():
         return 0
 
     name = event.get("hook_event_name")
+    if name == "UserPromptExpansion":
+        print(json.dumps(manual_prompt(event)))
+        return 0
     if name == "PostToolUse":
         try:
             record_post_tool_use(event)

@@ -189,6 +189,23 @@ test("explicit skill invocation suppresses the automatic Stop refresh", async (t
   assert.deepEqual(await s.senderCalls(), []);
 });
 
+test("Claude manual slash commands send exactly once without a model shell", async (t) => {
+  const s = await sandbox(t);
+  const prompt = (name, args = "") => ({ hook_event_name: "UserPromptExpansion", expansion_type: "slash_command", command_name: name, command_args: args });
+  await s.run(editEvent("lib/ui/page.dart", "Text('Old')", "Text('New')"));
+  const reload = JSON.parse(s.run(prompt("flutter-reload")).stdout);
+  assert.match(reload.systemMessage, /OK: stub reload/);
+  assert.equal(await s.state(), null);
+  assert.equal(JSON.parse(s.run(stopEvent()).stdout).systemMessage, undefined);
+  const restart = JSON.parse(s.run(prompt("flutter-restart")).stdout);
+  assert.match(restart.systemMessage, /OK: stub restart/);
+  assert.deepEqual(await s.senderCalls(), ["reload", "restart"]);
+  const blocked = JSON.parse(s.run(prompt("flutter-reload", "edit a file")).stdout);
+  assert.equal(blocked.decision, "block");
+  assert.deepEqual(await s.senderCalls(), ["reload", "restart"]);
+  assert.equal(JSON.parse(s.run(prompt("flutter-reload"), s.plain).stdout).decision, "block");
+});
+
 test("a failed sender reports the error rather than the initial REQUESTED line", async (t) => {
   const s = await sandbox(t);
   const sender = join(s.home, "bin", "flutter_refresh.sh");
