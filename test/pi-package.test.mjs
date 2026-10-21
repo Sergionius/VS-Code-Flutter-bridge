@@ -11,6 +11,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 test("Pi manifest exposes only Flutter extension entry points", async () => {
   const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   assert.deepEqual(manifest.pi.extensions, ["./pi/extensions/*.ts"]);
+  assert.equal(manifest.icon, "assets/icon.png");
   const commands = [];
   const handlers = [];
   const pi = {
@@ -39,7 +40,7 @@ test("VS Code sync is idempotent, retains the source and removes old installs", 
     assert.equal(first.removedLegacy.length, 1);
     assert.deepEqual(second.removedLegacy, []);
     assert.equal(JSON.parse(await readFile(join(second.destination, "package.json"), "utf8")).version, first.version);
-    for (const relative of ["lib/agent-setup.js", "bridge/flutter_refresh.sh", "bridge/agent_hook.py", "templates/skills/flutter-refresh/SKILL.md"]) {
+    for (const relative of ["lib/agent-setup.js", "bridge/flutter_refresh.sh", "bridge/agent_hook.py", "templates/skills/flutter-refresh/SKILL.md", "assets/icon.png", "assets/preview.png"]) {
       assert.ok((await readFile(join(second.destination, relative))).length > 0, `${relative} is present in a synced extension`);
     }
     assert.match((await getDoctorReport()).lines.join("\n"), /VS Code bridge installed: OK/);

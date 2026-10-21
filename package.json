@@ -2,7 +2,8 @@
   "name": "flutter-agent-refresh",
   "displayName": "Flutter Agent Refresh",
   "description": "Hot reload and restart Flutter apps from Pi, Codex, and Claude Code in VS Code.",
-  "version": "0.5.1",
+  "icon": "assets/icon.png",
+  "version": "0.5.2",
   "publisher": "sergionius",
   "license": "MIT",
   "repository": {

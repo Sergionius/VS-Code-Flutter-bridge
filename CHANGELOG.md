@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- Added the 128×128 Marketplace extension icon and a larger artwork preview in the README; Pi VS Code sync now copies both assets.
+
 ## 0.5.1
 
 - Pass the host hook's confirmed result into Claude Code's context as well as the user-visible status, so Claude does not falsely report that confirmation was missing.
