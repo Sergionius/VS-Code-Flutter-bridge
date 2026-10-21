@@ -29,8 +29,6 @@ pi install git:github.com/Sergionius/VS-Code-Flutter-bridge
 
 After `pi update git:github.com/Sergionius/VS-Code-Flutter-bridge`, run `/reload`, `/pi-flutter-bridge-sync`, and `Developer: Reload Window` again. `PI_FLUTTER_REFRESH_DISABLED=1` disables automatic requests, `PI_FLUTTER_REFRESH_TIMEOUT_SECONDS` sets the response timeout (10 seconds by default), and `PI_FLUTTER_BRIDGE_EXTENSIONS_DIR` overrides the VS Code extensions directory.
 
-**Migrating from pi-toolkit:** Update pi-toolkit to the release without bundled Flutter support first and run `/reload`, then install this package and run `/reload` again. Check `~/.pi/agent/settings.json` and project settings for old direct `extensions/flutter-refresh.ts` paths, and remove them to prevent two listeners from issuing duplicate refresh requests. The old `/pi-toolkit-sync-vscode` and `/pi-toolkit-doctor` commands are replaced by the commands above. Keep other pi-toolkit resources installed. Roll back by removing this package and installing a previous pi-toolkit revision; do not load both Flutter extensions at once.
-
 To use only the VS Code extension without Pi, copy `package.json`, `extension.js`, `README.md`, and `LICENSE` into `~/.vscode/extensions/local.pi-flutter-refresh-bridge-0.3.0/` (or your VS Code extensions directory), then reload VS Code. The folder name must match the `publisher`, `name`, and `version` in `package.json`; the Pi sync command may overwrite it. Without the Pi package, you must send refresh requests yourself.
 
 The bridge watches a workspace-local file under `.dart_tool`, so requests should come only from a trusted workspace. It checks the request's workspace and the active Dart debug session before running a refresh.
@@ -42,8 +40,6 @@ The bridge watches a workspace-local file under `.dart_tool`, so requests should
 - `workspace_mismatch`
 - `invalid_request`
 - `command_failed`
-
-Requests without a protocol version/request ID remain supported as legacy fire-and-forget requests during migration.
 
 ## Settings
 
