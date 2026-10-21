@@ -1,37 +1,61 @@
 # Pi Flutter Refresh Bridge
 
-VS Code extension and independently installable [Pi](https://pi.dev) package for automatic Flutter hot reload/restart. The VS Code extension is installed locally, not published to the VS Code Marketplace.
+VS Code extension that lets coding agents refresh a running Flutter app with a confirmed hot reload or hot restart. One shared sender and one setup wizard serve three agents: [Pi](https://pi.dev), Codex CLI, and Claude Code. The extension is not published to the VS Code Marketplace yet; see [Install](#install).
 
 ## How it works
 
-1. Pi atomically writes `.dart_tool/pi_flutter_refresh/request.json` with a unique request ID.
-2. The extension validates the request and checks that the active debug session is a Dart session from the same workspace.
-3. It invokes `dart.hotReload` or `flutter.hotRestart`.
-4. It atomically writes `.dart_tool/pi_flutter_refresh/responses/<requestId>.json`.
-5. Pi reports the confirmed result or times out instead of claiming success after only writing a file.
+1. An agent (or the Pi package automatically) runs the shared sender `~/.pi-flutter-bridge/bin/flutter_refresh.sh <reload|restart>`.
+2. The sender atomically writes `.dart_tool/pi_flutter_refresh/request.json` with a unique request ID and waits for the answer.
+3. The extension validates the request and checks that the active debug session is a Dart session from the same workspace.
+4. It invokes `dart.hotReload` or `flutter.hotRestart`.
+5. It atomically writes `.dart_tool/pi_flutter_refresh/responses/<requestId>.json`.
+6. The sender reports the confirmed result or times out instead of claiming success after only writing a file.
 
-A successful response confirms that Dart-Code accepted the command. It does not guarantee that the next Flutter frame has already rendered.
+A successful response confirms that Dart-Code accepted the command. It does not guarantee that the next Flutter frame has already rendered. Hot reload falls back to hot restart when `piFlutterRefreshBridge.reloadFallbackToRestart` is enabled and the reload command throws.
 
-Hot reload falls back to hot restart when `piFlutterRefreshBridge.reloadFallbackToRestart` is enabled and the reload command throws.
+Sender exit codes: `0` confirmed (`SKIPPED`/`WARN` lines are non-fatal) · `2` usage error · `3` no debug session · `4` workspace mismatch · `5` invalid request · `6` command failed · `8` timeout.
 
-## Install and use
+The bridge watches a workspace-local file under `.dart_tool`, so requests should come only from a trusted workspace.
 
-Requires Pi, Node.js 22.19+, Python 3, Bash, VS Code 1.80+, Dart-Code, and a Flutter project. Install independently of pi-toolkit:
+## Install
+
+**Marketplace (once published):** search for “Pi Flutter Refresh Bridge” in the Extensions view. Until then, install from source:
 
 ```bash
-pi install git:github.com/Sergionius/VS-Code-Flutter-bridge
+git clone https://github.com/Sergionius/VS-Code-Flutter-bridge.git
+cd VS-Code-Flutter-bridge
+npx @vscode/vsce package
+code --install-extension pi-flutter-refresh-bridge-0.4.0.vsix
 ```
 
-1. Run `/reload` in Pi, then `/pi-flutter-bridge-sync` to copy this repository's VS Code extension into VS Code's extensions directory. Run `/pi-flutter-bridge-doctor` to check the helper and installation.
-2. In VS Code, run `Developer: Reload Window` after installation or update.
-3. Open the Flutter project and start it using Run/Debug in that VS Code window.
-4. Let Pi edit Flutter app files; the Pi extension requests refresh automatically. Use `Pi Flutter Bridge: Diagnose` from the VS Code Command Palette to inspect the workspace, signal path, and active debug session.
+Requires VS Code 1.80+, the Dart/Flutter extension, Bash, Python 3, and Node.js 22.19+ for development. The Pi integration additionally requires the `pi` CLI.
 
-After `pi update git:github.com/Sergionius/VS-Code-Flutter-bridge`, run `/reload`, `/pi-flutter-bridge-sync`, and `Developer: Reload Window` again. `PI_FLUTTER_REFRESH_DISABLED=1` disables automatic requests, `PI_FLUTTER_REFRESH_TIMEOUT_SECONDS` sets the response timeout (10 seconds by default), and `PI_FLUTTER_BRIDGE_EXTENSIONS_DIR` overrides the VS Code extensions directory.
+On activation the extension installs the shared sender at `~/.pi-flutter-bridge/` and keeps it up to date, so agent integrations never reference the versioned Marketplace extension folder.
 
-To use only the VS Code extension without Pi, copy `package.json`, `extension.js`, `README.md`, and `LICENSE` into `~/.vscode/extensions/local.pi-flutter-refresh-bridge-0.3.0/` (or your VS Code extensions directory), then reload VS Code. The folder name must match the `publisher`, `name`, and `version` in `package.json`; the Pi sync command may overwrite it. Without the Pi package, you must send refresh requests yourself.
+### Migrating from the pre-0.4 local copy
 
-The bridge watches a workspace-local file under `.dart_tool`, so requests should come only from a trusted workspace. It checks the request's workspace and the active Dart debug session before running a refresh.
+If you previously ran `/pi-flutter-bridge-sync`, remove the old `local.pi-flutter-refresh-bridge-*` folder from your VS Code extensions directory after installing this version, then reload the window. **Pi Flutter Bridge: Diagnose** warns when two copies of the extension are active.
+
+## Set up an agent
+
+Run **Pi Flutter Bridge: Set Up Agent** from the Command Palette, choose an agent, review what will be installed, and confirm. The wizard never overwrites settings it does not own, and re-running it is safe.
+
+| Agent | Skill | Automatic refresh |
+| --- | --- | --- |
+| Pi | — (the Pi package *is* the integration) | Yes, out of the box: the package refreshes after each settled turn when app files changed. The wizard runs `pi install git:github.com/Sergionius/VS-Code-Flutter-bridge`. |
+| Codex | `~/.codex/skills/flutter-refresh/` | Opt-in hooks in `~/.codex/hooks.json` (`PostToolUse` records changes, `Stop` refreshes). Open Codex and run `/hooks` once to review and trust them — untrusted hooks never run. |
+| Claude Code | `~/.claude/skills/flutter-refresh/` | Opt-in hooks in `~/.claude/settings.json` (same events). Restart Claude Code sessions to load them. |
+
+The skill teaches the agent when to request `reload` (UI-only changes) versus `restart` (models, constructors, `main.dart`, pubspec, generated code, bootstrap/DI/config) and how to call the shared sender.
+
+How automatic hooks choose the mode: `PostToolUse` records app-relevant changes (mirroring the Pi package heuristics), and the final `Stop` performs at most one refresh per turn — `restart` when restart-worthy files or new class members were touched, otherwise `reload`. Non-Flutter projects never trigger a request.
+
+## Diagnose and remove
+
+- **Pi Flutter Bridge: Diagnose** prints to the *Pi Flutter Refresh Bridge* output channel: the workspace, signal file, active debug session, sender availability, per-agent setup, and duplicate extension copies.
+- **Pi Flutter Bridge: Remove Agent Integration** uninstalls one agent's skill and hook entries (only entries this bridge added), and offers to delete the shared sender when no other agent uses it.
+
+Manual refresh commands **Pi Flutter Bridge: Hot Reload / Hot Restart** always work without any agent.
 
 ## Result statuses
 
@@ -48,9 +72,21 @@ The bridge watches a workspace-local file under `.dart_tool`, so requests should
 - `piFlutterRefreshBridge.reloadFallbackToRestart` — default `true`
 - `piFlutterRefreshBridge.messageTimeoutMs` — default `8000`
 
+Environment variables for the sender and hooks: `PI_FLUTTER_REFRESH_TIMEOUT_SECONDS` (default 10), `PI_FLUTTER_REFRESH_DISABLED=1` (disables the Pi package's automatic requests), `PI_FLUTTER_REFRESH_COMMAND` (custom refresh command override), `PI_FLUTTER_BRIDGE_HOME` (relocates `~/.pi-flutter-bridge` for the hook script).
+
+## Limitations
+
+- macOS and Linux only (Bash + Python 3); Windows is not supported.
+- Hooks are installed at the user level; the sender skips non-Flutter projects, so they stay silent elsewhere.
+- The reload/restart heuristics exist twice (TypeScript for Pi, Python for the hooks); both are covered by tests but can drift over time.
+- Codex requires explicit `/hooks` trust after every change to the hook definition; this is Codex security policy, not a bug.
+- The Marketplace publisher id (`sergionius`) must be verified as registered and owned before publication.
+
 ## Development
 
-Run `npm run check` (Node.js 22.19 or newer, Python 3 and Bash) to syntax-check the extension and test the Pi extension, handshake, installer, and mocked VS Code API. CI runs the same command on pushes and pull requests. Tests do not launch VS Code or a Flutter app.
+Run `npm run check` (Node.js 22.19+, Python 3, Bash) to syntax-check everything and run the test suites: protocol and bridge behavior, sender handshake with a mocked VS Code responder, installer idempotency and settings merging, hook heuristics, wizard smoke tests with a mocked VS Code API, and packaging checks. CI runs the same command on pushes and pull requests. Tests do not launch VS Code or a Flutter app.
+
+Package locally with `npx @vscode/vsce package`; `.vscodeignore` keeps tests and the Pi package files out of the VSIX while the repository stays installable as a Pi package (`pi install git:github.com/Sergionius/VS-Code-Flutter-bridge`).
 
 ## License
 

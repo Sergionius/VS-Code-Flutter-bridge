@@ -39,6 +39,9 @@ test("VS Code sync is idempotent, retains the source and removes old installs", 
     assert.equal(first.removedLegacy.length, 1);
     assert.deepEqual(second.removedLegacy, []);
     assert.equal(JSON.parse(await readFile(join(second.destination, "package.json"), "utf8")).version, first.version);
+    for (const relative of ["lib/agent-setup.js", "bridge/flutter_refresh.sh", "bridge/agent_hook.py", "templates/skills/flutter-refresh/SKILL.md"]) {
+      assert.ok((await readFile(join(second.destination, relative))).length > 0, `${relative} is present in a synced extension`);
+    }
     assert.match((await getDoctorReport()).lines.join("\n"), /VS Code bridge installed: OK/);
   } finally {
     if (previousEnv === undefined) delete process.env.PI_FLUTTER_BRIDGE_EXTENSIONS_DIR;

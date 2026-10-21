@@ -2,16 +2,16 @@
   "name": "pi-flutter-refresh-bridge",
   "displayName": "Pi Flutter Refresh Bridge",
   "description": "VS Code Flutter refresh bridge and optional Pi auto-refresh package.",
-  "version": "0.3.0",
-  "publisher": "local",
+  "version": "0.4.0",
+  "publisher": "sergionius",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Sergionius/VS-Code-Flutter-bridge.git"
   },
   "scripts": {
-    "test": "node --test test/bridge.test.js && node --experimental-strip-types --test test/pi-flutter-refresh.test.mjs test/pi-package.test.mjs",
-    "check": "node --check extension.js && npm test && bash test/pi-flutter-refresh.test.sh"
+    "test": "node --test test/bridge.test.js test/agent-setup.test.js test/extension-activate.test.js && node --experimental-strip-types --test test/pi-flutter-refresh.test.mjs test/pi-package.test.mjs test/agent-hook.test.mjs",
+    "check": "node --check extension.js && node --check lib/agent-setup.js && bash -n bridge/flutter_refresh.sh && python3 -c \"compile(open('bridge/agent_hook.py').read(), 'agent_hook.py', 'exec')\" && npm test && bash test/pi-flutter-refresh.test.sh"
   },
   "engines": {
     "vscode": "^1.80.0"
@@ -32,7 +32,9 @@
     "workspaceContains:pubspec.yaml",
     "onCommand:piFlutterRefreshBridge.hotReload",
     "onCommand:piFlutterRefreshBridge.hotRestart",
-    "onCommand:piFlutterRefreshBridge.diagnose"
+    "onCommand:piFlutterRefreshBridge.diagnose",
+    "onCommand:piFlutterRefreshBridge.setUpAgent",
+    "onCommand:piFlutterRefreshBridge.removeAgentIntegration"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -48,6 +50,14 @@
       {
         "command": "piFlutterRefreshBridge.diagnose",
         "title": "Pi Flutter Bridge: Diagnose"
+      },
+      {
+        "command": "piFlutterRefreshBridge.setUpAgent",
+        "title": "Pi Flutter Bridge: Set Up Agent"
+      },
+      {
+        "command": "piFlutterRefreshBridge.removeAgentIntegration",
+        "title": "Pi Flutter Bridge: Remove Agent Integration"
       }
     ],
     "configuration": {
