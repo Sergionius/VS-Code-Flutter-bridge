@@ -160,12 +160,20 @@ test('invalid JSON settings abort without modifying the file', (t) => {
   assert.equal(setup.hooksStatus('claude', { homeDir: box.home }).invalid, true);
 });
 
-test('pi package status reflects the package directory', (t) => {
+test('pi package status follows configured source, not an orphaned checkout directory', (t) => {
   const box = sandbox(t);
   assert.equal(setup.piPackageStatus({ homeDir: box.home }).installed, false);
   const directory = setup.piPackageDir(box.home);
   fs.mkdirSync(directory, { recursive: true });
   fs.writeFileSync(path.join(directory, 'package.json'), '{}');
+  assert.equal(setup.piPackageStatus({ homeDir: box.home }).installed, false);
+  const settingsFile = path.join(box.home, '.pi', 'agent', 'settings.json');
+  fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
+  fs.writeFileSync(settingsFile, JSON.stringify({ packages: [
+    'git:git@github.com:Sergionius/VS-Code-Flutter-bridge.git',
+  ] }));
+  assert.equal(setup.piPackageStatus({ homeDir: box.home }).source,
+    'git:git@github.com:Sergionius/VS-Code-Flutter-bridge.git');
   assert.equal(setup.piPackageStatus({ homeDir: box.home }).installed, true);
 });
 

@@ -408,7 +408,7 @@ async function pickComponents(agent) {
   return { skill: picked.some((item) => item.value === 'skill'), hooks: picked.some((item) => item.value === 'hooks') };
 }
 
-async function installPiPackage(update = false) {
+async function installPiPackage(update = false, source = PI_PACKAGE_SPEC) {
   const check = await spawnAsync('pi', ['--version'], 15_000);
   if (check.error) {
     const choice = await vscode.window.showErrorMessage(
@@ -421,7 +421,7 @@ async function installPiPackage(update = false) {
   }
 
   const action = update ? 'Update' : 'Install';
-  const args = [update ? 'update' : 'install', PI_PACKAGE_SPEC];
+  const args = [update ? 'update' : 'install', source];
   const confirmed = await vscode.window.showInformationMessage(
     `${action} the Pi package?\n\npi ${args.join(' ')}\n\nThe shared sender is already installed at ${agentSetup.senderPath(homeDir())}.`,
     { modal: true },
@@ -448,7 +448,7 @@ async function setUpAgent(context, agent = undefined) {
   try {
     if (chosen === 'pi') {
       const status = agentSetup.piPackageStatus(options);
-      const result = await installPiPackage(status.installed);
+      const result = await installPiPackage(status.installed, status.source || PI_PACKAGE_SPEC);
       if (result.installed) {
         vscode.window.showInformationMessage(
           `Pi package ${status.installed ? 'updated' : 'installed'}.\n\nRun /reload in Pi, then start your Flutter app with Run/Debug in this window.`,
@@ -524,13 +524,17 @@ async function removeAgentIntegration(context) {
         return;
       }
       const confirmed = await vscode.window.showWarningMessage(
-        `Delete the Pi package directory?\n\n${status.directory}\n\nThe shared sender and other agents are not affected. Run /reload in Pi afterwards.`,
+        `Remove the Pi package?\n\npi remove ${status.source}\n\nThe shared sender and other agents are not affected. Run /reload in Pi afterwards.`,
         { modal: true },
-        'Delete',
+        'Remove',
       );
-      if (confirmed !== 'Delete') return;
-      fs.rmSync(status.directory, { recursive: true, force: true });
-      vscode.window.showInformationMessage(`Removed ${status.directory}.`, { modal: true });
+      if (confirmed !== 'Remove') return;
+      const result = await spawnAsync('pi', ['remove', status.source]);
+      if (result.error) {
+        vscode.window.showErrorMessage(`pi remove failed: ${result.stderr.trim() || errorMessage(result.error)}`);
+        return;
+      }
+      vscode.window.showInformationMessage(`Removed ${status.source}. Run /reload in Pi.`, { modal: true });
       return;
     }
 
