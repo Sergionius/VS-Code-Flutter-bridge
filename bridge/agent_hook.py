@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared Pi Flutter Bridge hook for Codex CLI and Claude Code.
+"""Shared Flutter Agent Refresh hook for Codex CLI and Claude Code.
 
 Reads one hook-event JSON object from stdin. Codex and Claude Code use
 different hook configuration files and tool names, but both send the same
@@ -297,7 +297,7 @@ def run_refresh(event):
     mode = "restart" if state.get("needsRestart") else "reload"
     sender = sender_path()
     if not os.path.isfile(sender):
-        return {"systemMessage": "flutter-bridge: sender not installed at %s; run Pi Flutter Bridge: Set Up Agent in VS Code" % sender}
+        return {"systemMessage": "flutter-bridge: sender not installed at %s; run Flutter Agent Refresh: Set Up Agent in VS Code" % sender}
 
     environment = dict(os.environ)
     environment.setdefault("PI_FLUTTER_REFRESH_TIMEOUT_SECONDS", "10")

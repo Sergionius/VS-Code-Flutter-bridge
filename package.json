@@ -1,13 +1,13 @@
 {
-  "name": "pi-flutter-refresh-bridge",
-  "displayName": "Pi Flutter Refresh Bridge",
-  "description": "VS Code Flutter refresh bridge and optional Pi auto-refresh package.",
+  "name": "flutter-agent-refresh",
+  "displayName": "Flutter Agent Refresh",
+  "description": "Hot reload and restart Flutter apps from Pi, Codex, and Claude Code in VS Code.",
   "version": "0.4.0",
   "publisher": "sergionius",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Sergionius/VS-Code-Flutter-bridge.git"
+    "url": "https://github.com/Sergionius/flutter-agent-refresh.git"
   },
   "scripts": {
     "test": "node --test test/bridge.test.js test/agent-setup.test.js test/extension-activate.test.js && node --experimental-strip-types --test test/pi-flutter-refresh.test.mjs test/pi-package.test.mjs test/agent-hook.test.mjs",
@@ -41,27 +41,27 @@
     "commands": [
       {
         "command": "piFlutterRefreshBridge.hotReload",
-        "title": "Pi Flutter Bridge: Hot Reload"
+        "title": "Flutter Agent Refresh: Hot Reload"
       },
       {
         "command": "piFlutterRefreshBridge.hotRestart",
-        "title": "Pi Flutter Bridge: Hot Restart"
+        "title": "Flutter Agent Refresh: Hot Restart"
       },
       {
         "command": "piFlutterRefreshBridge.diagnose",
-        "title": "Pi Flutter Bridge: Diagnose"
+        "title": "Flutter Agent Refresh: Diagnose"
       },
       {
         "command": "piFlutterRefreshBridge.setUpAgent",
-        "title": "Pi Flutter Bridge: Set Up Agent"
+        "title": "Flutter Agent Refresh: Set Up Agent"
       },
       {
         "command": "piFlutterRefreshBridge.removeAgentIntegration",
-        "title": "Pi Flutter Bridge: Remove Agent Integration"
+        "title": "Flutter Agent Refresh: Remove Agent Integration"
       }
     ],
     "configuration": {
-      "title": "Pi Flutter Refresh Bridge",
+      "title": "Flutter Agent Refresh",
       "properties": {
         "piFlutterRefreshBridge.signalFile": {
           "type": "string",

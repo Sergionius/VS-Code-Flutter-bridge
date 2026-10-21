@@ -151,7 +151,7 @@ test('activation offers removal of legacy local.* extension copies', async (t) =
   const box = sandbox(t);
   const mock = makeVscodeMock();
   const extensionsDir = path.join(box.home, '.vscode', 'extensions');
-  const current = path.join(extensionsDir, 'sergionius.pi-flutter-refresh-bridge-0.4.0');
+  const current = path.join(extensionsDir, 'sergionius.flutter-agent-refresh-0.4.0');
   const legacy = path.join(extensionsDir, 'local.pi-flutter-refresh-bridge-0.3.0');
   fs.mkdirSync(extensionsDir, { recursive: true });
   fs.mkdirSync(legacy, { recursive: true });

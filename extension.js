@@ -6,8 +6,8 @@ const { execFile } = require('child_process');
 const agentSetup = require('./lib/agent-setup');
 
 const PROTOCOL_VERSION = 1;
-const PI_PACKAGE_SPEC = 'git:github.com/Sergionius/VS-Code-Flutter-bridge';
-const OUTPUT_CHANNEL_NAME = 'Pi Flutter Refresh Bridge';
+const PI_PACKAGE_SPEC = 'git:github.com/Sergionius/flutter-agent-refresh';
+const OUTPUT_CHANNEL_NAME = 'Flutter Agent Refresh';
 const DEFAULT_SIGNAL_FILE = '.dart_tool/pi_flutter_refresh/request.json';
 const RESPONSE_DIRECTORY = 'responses';
 const REQUEST_MAX_AGE_MS = 5 * 60 * 1000;
@@ -68,11 +68,11 @@ function show(message, level = 'info') {
 
   if (!statusItem) {
     statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusItem.name = 'Pi Flutter Refresh Bridge';
+    statusItem.name = 'Flutter Agent Refresh';
   }
 
   const icon = level === 'error' ? '$(error)' : level === 'warning' ? '$(warning)' : '$(sync)';
-  statusItem.text = `${icon} Pi Flutter Bridge: ${message}`;
+  statusItem.text = `${icon} Flutter Agent Refresh: ${message}`;
   statusItem.tooltip = 'This message auto-hides; configure piFlutterRefreshBridge.messageTimeoutMs if needed.';
   statusItem.show();
 
@@ -360,7 +360,7 @@ function diagnosticBridgeLines() {
 function duplicateExtensionLines() {
   try {
     const copies = vscode.extensions.all.filter(
-      (extension) => extension.packageJSON && extension.packageJSON.name === agentSetup.EXTENSION_NAME,
+      (extension) => extension.packageJSON && [agentSetup.EXTENSION_NAME, 'pi-flutter-refresh-bridge'].includes(extension.packageJSON.name),
     );
     if (copies.length > 1) {
       return [`WARNING: ${copies.length} copies of this extension are active (${copies.map((copy) => copy.id).join(', ')}). Uninstall the duplicates to avoid double refreshes.`];
@@ -429,7 +429,7 @@ async function installPiPackage(update = false, source = PI_PACKAGE_SPEC) {
   );
   if (confirmed !== action) return { installed: false, cancelled: true };
 
-  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Pi Flutter Bridge: ${action.toLowerCase()}ing Pi package` }, async () => {
+  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Flutter Agent Refresh: ${action.toLowerCase()}ing Pi package` }, async () => {
     const result = await spawnAsync('pi', args);
     if (result.error) {
       vscode.window.showErrorMessage(`pi ${args[0]} failed: ${result.stderr.trim() || errorMessage(result.error)}`);
@@ -614,15 +614,15 @@ function diagnose(context) {
   channel().show(true);
   const healthy = Boolean(session && folder && session.type === 'dart' && session.workspaceFolder
     && samePath(session.workspaceFolder.uri.fsPath, folder.uri.fsPath));
-  show(healthy ? 'diagnostics complete; see the Pi Flutter Refresh Bridge output'
-    : 'diagnostics found issues; see the Pi Flutter Refresh Bridge output', healthy ? 'info' : 'warning');
+  show(healthy ? 'diagnostics complete; see the Flutter Agent Refresh output'
+    : 'diagnostics found issues; see the Flutter Agent Refresh output', healthy ? 'info' : 'warning');
 }
 
 function detectLegacyCopies(context) {
   try {
     const extensionsDir = path.dirname(context.extensionPath);
     return fs.readdirSync(extensionsDir)
-      .filter((name) => /^local\.pi-flutter-refresh-bridge-/.test(name)
+      .filter((name) => /^(?:local\.pi-flutter-refresh-bridge-|sergionius\.pi-flutter-refresh-bridge-)/.test(name)
         && path.join(extensionsDir, name) !== context.extensionPath)
       .map((name) => path.join(extensionsDir, name));
   } catch {
@@ -634,7 +634,7 @@ async function offerLegacyCleanup(context) {
   const legacy = detectLegacyCopies(context);
   if (legacy.length === 0) return;
   const choice = await vscode.window.showWarningMessage(
-    `Pi Flutter Bridge found old extension copies:\n\n${legacy.join('\n')}\n\nKeeping both copies causes duplicate refreshes.`,
+    `Flutter Agent Refresh found old extension copies:\n\n${legacy.join('\n')}\n\nKeeping both copies causes duplicate refreshes.`,
     'Remove old copies',
   );
   if (choice !== 'Remove old copies') return;

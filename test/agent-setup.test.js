@@ -175,6 +175,10 @@ test('pi package status follows configured source, not an orphaned checkout dire
   assert.equal(setup.piPackageStatus({ homeDir: box.home }).source,
     'git:git@github.com:Sergionius/VS-Code-Flutter-bridge.git');
   assert.equal(setup.piPackageStatus({ homeDir: box.home }).installed, true);
+  fs.writeFileSync(settingsFile, JSON.stringify({ packages: ['git:github.com/Sergionius/flutter-agent-refresh'] }));
+  assert.equal(setup.piPackageStatus({ homeDir: box.home }).source,
+    'git:github.com/Sergionius/flutter-agent-refresh');
+  assert.equal(setup.piPackageStatus({ homeDir: box.home }).installed, true);
 });
 
 test('packaging: VSIX keeps runtime files and excludes tests and Pi package files', () => {

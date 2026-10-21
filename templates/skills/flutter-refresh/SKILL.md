@@ -1,11 +1,11 @@
 ---
 name: flutter-refresh
-description: Request Flutter hot reload or hot restart in the VS Code debug session through the Pi Flutter Bridge. Use after editing Flutter app files (lib/**.dart, pubspec.yaml, assets, generated code) or when the user asks to refresh, reload, or restart the running app.
+description: Request Flutter hot reload or hot restart in the VS Code debug session through Flutter Agent Refresh. Use after editing Flutter app files (lib/**.dart, pubspec.yaml, assets, generated code) or when the user asks to refresh, reload, or restart the running app.
 ---
 
 <!-- pi-flutter-bridge -->
 
-# Flutter refresh via Pi Flutter Bridge
+# Flutter refresh via Flutter Agent Refresh
 
 When a Flutter app is running under VS Code's debugger, send confirmed
 reload/restart requests through the bridge instead of unverified CLI calls.
@@ -50,5 +50,5 @@ non-fatal) · `2` usage error · `3` no debug session · `4` workspace mismatch
 `PI_FLUTTER_REFRESH_TIMEOUT_SECONDS` (default 10) caps how long the script
 waits for the VS Code confirmation.
 
-If the script is missing, ask the user to run **Pi Flutter Bridge: Set Up
+If the script is missing, ask the user to run **Flutter Agent Refresh: Set Up
 Agent** in VS Code.

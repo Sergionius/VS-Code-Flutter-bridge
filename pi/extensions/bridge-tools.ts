@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const HELPER = join(ROOT, "bridge", "flutter_refresh.sh");
 const STABLE_SENDER = resolve(homedir(), ".pi-flutter-bridge", "bin", "flutter_refresh.sh");
-const LEGACY_PREFIXES = ["local.pi-flutter-refresh-bridge-"];
+const LEGACY_PREFIXES = ["local.pi-flutter-refresh-bridge-", "sergionius.pi-flutter-refresh-bridge-"];
 
 type Manifest = { name: string; publisher: string; version: string };
 
