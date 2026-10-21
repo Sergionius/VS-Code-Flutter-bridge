@@ -195,6 +195,8 @@ test("Claude manual slash commands send exactly once without a model shell", asy
   await s.run(editEvent("lib/ui/page.dart", "Text('Old')", "Text('New')"));
   const reload = JSON.parse(s.run(prompt("flutter-reload")).stdout);
   assert.match(reload.systemMessage, /OK: stub reload/);
+  assert.equal(reload.hookSpecificOutput.hookEventName, "UserPromptExpansion");
+  assert.match(reload.hookSpecificOutput.additionalContext, /OK: stub reload.*already sent/);
   assert.equal(await s.state(), null);
   assert.equal(JSON.parse(s.run(stopEvent()).stdout).systemMessage, undefined);
   const restart = JSON.parse(s.run(prompt("flutter-restart")).stdout);

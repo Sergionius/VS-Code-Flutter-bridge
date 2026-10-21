@@ -348,7 +348,7 @@ function agentDiagnosticLines() {
     const skill = agentSetup.skillStatus(agent, { homeDir: home });
     const hooks = agentSetup.hooksStatus(agent, { homeDir: home });
     const skillState = skill === 'ours' ? 'OK' : skill === 'foreign' ? 'FOREIGN (not managed by this bridge)' : 'not installed';
-    lines.push(`${label} skill: ${skillState} (${agentSetup.skillDirectory(agent, home)})${agent === 'claude' && skill === 'ours' ? ' — manual requests require a shell tool' : ''}`);
+    lines.push(`${label} skill: ${skillState} (${agentSetup.skillDirectory(agent, home)})${agent === 'claude' && skill === 'ours' ? ' — legacy /flutter-refresh requires Bash' : ''}`);
     lines.push(`${label} hooks: ${hooks.invalid ? 'INVALID JSON (fix manually)' : hooks.configured ? 'OK' : 'not configured'} (${hooks.file})`);
   }
   const manual = agentSetup.claudeManualStatus({ homeDir: home });

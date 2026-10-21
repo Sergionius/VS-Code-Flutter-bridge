@@ -210,7 +210,7 @@ test('diagnose writes a full report without a workspace or debug session', async
   assert.doesNotMatch(report, /sender: sender:/);
   assert.match(report, /Pi package: not installed/);
   assert.match(report, /Codex skill: not installed/);
-  assert.match(report, /Claude Code skill: OK .*manual requests require a shell tool/);
+  assert.match(report, /Claude Code skill: OK .*legacy \/flutter-refresh requires Bash/);
   assert.match(report, /Claude Code manual commands: not installed/);
   assert.match(report, /Claude Code hooks: not configured/);
   assert.match(report, /Flutter workspace: no/);

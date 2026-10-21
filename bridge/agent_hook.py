@@ -313,7 +313,14 @@ def manual_prompt(event):
         os.remove(state_file(event.get("session_id")))
     except OSError:
         pass
-    return {"systemMessage": "flutter-bridge: " + summary}
+    confirmation = "flutter-bridge: " + summary
+    return {
+        "systemMessage": confirmation,
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptExpansion",
+            "additionalContext": confirmation + ". The host hook already sent this request; do not send it again.",
+        },
+    }
 
 
 def run_refresh(event):

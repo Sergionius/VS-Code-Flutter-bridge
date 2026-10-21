@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Pass the host hook's confirmed result into Claude Code's context as well as the user-visible status, so Claude does not falsely report that confirmation was missing.
+
 ## 0.5.0
 
 - Added standalone Claude Code `/flutter-reload` and `/flutter-restart` commands. A `UserPromptExpansion` host hook sends a confirmed request without needing a model-accessible Bash tool; use the commands after editing, in a separate turn.

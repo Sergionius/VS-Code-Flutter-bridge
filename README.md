@@ -25,7 +25,7 @@ The bridge watches a workspace-local file under `.dart_tool`, so requests should
 git clone https://github.com/Sergionius/flutter-agent-refresh.git
 cd flutter-agent-refresh
 npx @vscode/vsce package
-code --install-extension flutter-agent-refresh-0.5.0.vsix
+code --install-extension flutter-agent-refresh-0.5.1.vsix
 ```
 
 Requires VS Code 1.80+, the Dart/Flutter extension, Bash, Python 3, and Node.js 22.19+ for development. The Pi integration additionally requires the `pi` CLI.
