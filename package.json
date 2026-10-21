@@ -3,7 +3,7 @@
   "displayName": "Flutter Agent Refresh",
   "description": "Hot reload and restart Flutter apps from Pi, Codex, and Claude Code in VS Code.",
   "icon": "assets/icon.png",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publisher": "sergionius",
   "license": "MIT",
   "repository": {
@@ -17,7 +17,7 @@
   "engines": {
     "vscode": "^1.80.0"
   },
-  "keywords": ["pi-package"],
+  "keywords": ["flutter", "hot-reload", "hot-restart", "ai-agents", "codex", "claude-code", "pi-package"],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },
@@ -67,7 +67,7 @@
         "piFlutterRefreshBridge.signalFile": {
           "type": "string",
           "default": ".dart_tool/pi_flutter_refresh/request.json",
-          "description": "Workspace-relative request file written by pi."
+          "description": "Workspace-relative request file written by the shared sender."
         },
         "piFlutterRefreshBridge.showNotifications": {
           "type": "boolean",

@@ -2,7 +2,7 @@
 
 <p align="center"><img src="assets/preview.png" alt="Terminal and mobile app connected by neon refresh arrows" width="360"></p>
 
-VS Code extension that lets coding agents refresh a running Flutter app with a confirmed hot reload or hot restart. One shared sender and one setup wizard serve three agents: [Pi](https://pi.dev), Codex CLI, and Claude Code. The extension is not published to the VS Code Marketplace yet; see [Install](#install).
+VS Code extension that lets coding agents refresh a running Flutter app with a confirmed hot reload or hot restart. One shared sender and one setup wizard serve three agents: [Pi](https://pi.dev), Codex CLI, and Claude Code.
 
 ## How it works
 
@@ -21,13 +21,21 @@ The bridge watches a workspace-local file under `.dart_tool`, so requests should
 
 ## Install
 
-**Marketplace (once published):** search for “Flutter Agent Refresh” in the Extensions view. Until then, install from source:
+Search for **Flutter Agent Refresh** (`sergionius.flutter-agent-refresh`) in the VS Code Extensions view, or install from the command line:
+
+```bash
+code --install-extension sergionius.flutter-agent-refresh
+```
+
+Then run **Flutter Agent Refresh: Set Up Agent** from the Command Palette and choose your agent. The extension works without an agent for manual Hot Reload / Hot Restart commands.
+
+To build a VSIX from source instead:
 
 ```bash
 git clone https://github.com/Sergionius/flutter-agent-refresh.git
 cd flutter-agent-refresh
 npx @vscode/vsce package
-code --install-extension flutter-agent-refresh-0.5.2.vsix
+code --install-extension flutter-agent-refresh-0.5.3.vsix
 ```
 
 Requires VS Code 1.80+, the Dart/Flutter extension, Bash, Python 3, and Node.js 22.19+ for development. The Pi integration additionally requires the `pi` CLI.
@@ -83,7 +91,6 @@ Environment variables for the sender and hooks: `PI_FLUTTER_REFRESH_TIMEOUT_SECO
 - The reload/restart heuristics exist twice (TypeScript for Pi, Python for the hooks); both are covered by tests but can drift over time.
 - Codex requires explicit `/hooks` trust after every change to the hook definition; this is Codex security policy, not a bug.
 - In Claude Code sessions without an agent-accessible Bash tool, use the host-hook-backed `/flutter-reload` or `/flutter-restart` commands after editing, or enable automatic hooks. Do not combine a manual slash command and an editing request in one turn.
-- The Marketplace publisher id (`sergionius`) is registered. Publishing still requires publisher credentials and manual QA.
 
 ## Development
 

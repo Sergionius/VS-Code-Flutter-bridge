@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.3
+
+- Prepared the first Marketplace listing: install instructions, search keywords, and a clarified signal-file setting description.
+
 ## 0.5.2
 
 - Added the 128×128 Marketplace extension icon and a larger artwork preview in the README; Pi VS Code sync now copies both assets.
