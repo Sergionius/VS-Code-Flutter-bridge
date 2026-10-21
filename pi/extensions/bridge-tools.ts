@@ -6,8 +6,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const HELPER = join(ROOT, "pi", "scripts", "flutter_refresh.sh");
-const LEGACY_BRIDGE = "local.pi-flutter-refresh-bridge-0.1.0";
+const HELPER = join(ROOT, "bridge", "flutter_refresh.sh");
+const STABLE_SENDER = resolve(homedir(), ".pi-flutter-bridge", "bin", "flutter_refresh.sh");
+const LEGACY_PREFIXES = ["local.pi-flutter-refresh-bridge-"];
 
 type Manifest = { name: string; publisher: string; version: string };
 
@@ -36,8 +37,10 @@ export async function syncVsCodeBridge(options: { extensionsDir?: string } = {})
   await mkdir(extensionsDir, { recursive: true });
   try {
     await mkdir(temporary);
-    for (const file of ["package.json", "extension.js", "README.md", "LICENSE"]) {
-      await cp(join(ROOT, file), join(temporary, file));
+    // The legacy sync command remains usable for source installs. Copy every
+    // runtime dependency of extension.js, not just the extension entry point.
+    for (const file of ["package.json", "extension.js", "README.md", "LICENSE", "CHANGELOG.md", "lib", "bridge", "templates"]) {
+      await cp(join(ROOT, file), join(temporary, file), { recursive: true });
     }
     const copied = await manifest(temporary);
     if (copied.version !== source.version || copied.name !== source.name || copied.publisher !== source.publisher) {
@@ -57,8 +60,10 @@ export async function syncVsCodeBridge(options: { extensionsDir?: string } = {})
   }
   const removedLegacy: string[] = [];
   for (const entry of await readdir(extensionsDir, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name === directoryName || (entry.name !== LEGACY_BRIDGE
-      && !entry.name.startsWith(`${source.publisher}.${source.name}-`))) continue;
+    if (!entry.isDirectory() || entry.name === directoryName) continue;
+    const isLegacy = LEGACY_PREFIXES.some((prefix) => entry.name.startsWith(prefix));
+    const isOwnOldVersion = entry.name.startsWith(`${source.publisher}.${source.name}-`);
+    if (!isLegacy && !isOwnOldVersion) continue;
     const path = join(extensionsDir, entry.name);
     await rm(path, { recursive: true, force: true });
     removedLegacy.push(path);
@@ -70,6 +75,8 @@ export async function getDoctorReport(): Promise<{ lines: string[]; healthy: boo
   const lines: string[] = [];
   const helperReady = await exists(HELPER, constants.X_OK);
   lines.push(`Flutter helper: ${helperReady ? "OK" : "MISSING/NOT EXECUTABLE"} (${HELPER})`);
+  const senderReady = await exists(STABLE_SENDER, constants.X_OK);
+  lines.push(`Shared sender: ${senderReady ? "OK" : "not installed; the package copy is used"} (${STABLE_SENDER})`);
   let healthy = helperReady;
   try {
     const source = await manifest();

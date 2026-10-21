@@ -36,13 +36,18 @@ function harness(t, options = {}) {
     },
   };
   const bridge = { exports: {} };
+  const repoRoot = path.join(__dirname, '..');
   vm.runInNewContext(`${source}\nmodule.exports.executeProtocolRequest = executeProtocolRequest;`, {
     module: bridge,
     Buffer,
     process,
     setTimeout,
     clearTimeout,
-    require: (name) => name === 'vscode' ? vscode : require(name),
+    require: (name) => {
+      if (name === 'vscode') return vscode;
+      if (name.startsWith('./')) return require(path.join(repoRoot, name));
+      return require(name);
+    },
   }, { filename: 'extension.js' });
   const request = (id, overrides = {}) => ({
     protocolVersion: 1,

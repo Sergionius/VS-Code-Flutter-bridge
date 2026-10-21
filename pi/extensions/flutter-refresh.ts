@@ -1,10 +1,19 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
-const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SCRIPT = resolve(PACKAGE_ROOT, "scripts/flutter_refresh.sh");
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const PACKAGED_SENDER = resolve(PACKAGE_ROOT, "bridge/flutter_refresh.sh");
+
+function senderScript() {
+  const fromEnv = process.env.PI_FLUTTER_REFRESH_SENDER;
+  if (fromEnv) return fromEnv;
+  const stable = resolve(homedir(), ".pi-flutter-bridge", "bin", "flutter_refresh.sh");
+  if (existsSync(stable)) return stable;
+  return PACKAGED_SENDER;
+}
 
 let needsFlutterRefresh = false;
 let needsRestart = false;
@@ -138,7 +147,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify(`flutter-refresh: ${mode} after changes${paths ? ` (${paths})` : ""}`, "info");
       }
 
-      const result = await pi.exec(SCRIPT, [mode], { cwd: ctx.cwd, timeout: 30_000, signal: ctx.signal });
+      const result = await pi.exec(senderScript(), [mode], { cwd: ctx.cwd, timeout: 30_000, signal: ctx.signal });
       const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
       const summary = lastLine(output) || `exit code ${result.code}`;
 

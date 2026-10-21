@@ -1,8 +1,13 @@
 const vscode = require('vscode');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { execFile } = require('child_process');
+const agentSetup = require('./lib/agent-setup');
 
 const PROTOCOL_VERSION = 1;
+const PI_PACKAGE_SPEC = 'git:github.com/Sergionius/VS-Code-Flutter-bridge';
+const OUTPUT_CHANNEL_NAME = 'Pi Flutter Refresh Bridge';
 const DEFAULT_SIGNAL_FILE = '.dart_tool/pi_flutter_refresh/request.json';
 const RESPONSE_DIRECTORY = 'responses';
 const REQUEST_MAX_AGE_MS = 5 * 60 * 1000;
@@ -13,7 +18,25 @@ let lastLegacyRequestKey = '';
 let processing = Promise.resolve();
 let statusItem;
 let statusTimer;
+let outputChannel;
 const processedRequestIds = new Set();
+
+function channel() {
+  if (!outputChannel) outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
+  return outputChannel;
+}
+
+function homeDir() {
+  return process.env.HOME || os.homedir();
+}
+
+function spawnAsync(command, args, timeoutMs = 180_000) {
+  return new Promise((resolve) => {
+    execFile(command, args, { timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+      resolve({ error, stdout: String(stdout || ''), stderr: String(stderr || '') });
+    });
+  });
+}
 
 function config() {
   return vscode.workspace.getConfiguration('piFlutterRefreshBridge');
@@ -309,25 +332,330 @@ async function runManual(mode) {
   show(result.message, level);
 }
 
-function diagnose() {
+function agentDiagnosticLines() {
+  const home = homeDir();
+  const lines = [];
+
+  const bridge = agentSetup.bridgeStatus({ homeDir: home });
+  lines.push(`sender: ${bridge.senderInstalled ? (bridge.senderExecutable ? 'OK' : 'INSTALLED BUT NOT EXECUTABLE') : 'MISSING'} (${bridge.sender})`);
+  lines.push(`hook script: ${bridge.hookInstalled ? 'OK' : 'MISSING'} (${bridge.hook})`);
+
+  const pi = agentSetup.piPackageStatus({ homeDir: home });
+  lines.push(`Pi package: ${pi.installed ? 'OK' : 'not installed'} (${pi.directory})`);
+
+  for (const agent of Object.keys(agentSetup.AGENTS)) {
+    const label = agentSetup.AGENTS[agent].label;
+    const skill = agentSetup.skillStatus(agent, { homeDir: home });
+    const hooks = agentSetup.hooksStatus(agent, { homeDir: home });
+    lines.push(`${label} skill: ${skill === 'ours' ? 'OK' : skill === 'foreign' ? 'FOREIGN (not managed by this bridge)' : 'not installed'} (${agentSetup.skillDirectory(agent, home)})`);
+    lines.push(`${label} hooks: ${hooks.invalid ? 'INVALID JSON (fix manually)' : hooks.configured ? 'OK' : 'not configured'} (${hooks.file})`);
+  }
+  return lines;
+}
+
+function diagnosticBridgeLines() {
+  return agentDiagnosticLines().join('\\n    ');
+}
+
+function duplicateExtensionLines() {
+  try {
+    const copies = vscode.extensions.all.filter(
+      (extension) => extension.packageJSON && extension.packageJSON.name === agentSetup.EXTENSION_NAME,
+    );
+    if (copies.length > 1) {
+      return [`WARNING: ${copies.length} copies of this extension are active (${copies.map((copy) => copy.id).join(', ')}). Uninstall the duplicates to avoid double refreshes.`];
+    }
+  } catch {
+    // The extension API is unavailable in some test harnesses.
+  }
+  return [];
+}
+
+function ensureBridgeFiles(context) {
+  try {
+    agentSetup.installBridgeFiles({
+      homeDir: homeDir(),
+      sourceRoot: context.extensionPath,
+      extensionVersion: context.extension.packageJSON.version,
+    });
+  } catch (error) {
+    show(`could not install the shared sender: ${errorMessage(error)}`, 'warning');
+  }
+}
+
+const WIZARD_AGENTS = {
+  pi: { label: 'Pi', detail: 'Automatic refresh through the Pi package (runs pi install).' },
+  codex: { label: 'Codex', detail: 'Skill in ~/.codex/skills + optional automatic hooks in ~/.codex/hooks.json (trust them via /hooks in Codex).' },
+  claude: { label: 'Claude Code', detail: 'Skill in ~/.claude/skills + optional automatic hooks in ~/.claude/settings.json.' },
+};
+
+async function pickAgent(placeHolder) {
+  const items = Object.entries(WIZARD_AGENTS).map(([value, agent]) => ({ label: agent.label, detail: agent.detail, value }));
+  const picked = await vscode.window.showQuickPick(items, { placeHolder });
+  return picked ? picked.value : undefined;
+}
+
+async function pickComponents(agent) {
+  const items = [
+    { label: 'flutter-refresh skill', picked: true, value: 'skill', detail: 'Rules for choosing reload or restart and calling the shared sender.' },
+    { label: 'Automatic hooks', picked: false, value: 'hooks', detail: 'PostToolUse + Stop events run the refresh automatically at the end of each turn.' },
+  ];
+  const picked = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    placeHolder: `What should be installed for ${WIZARD_AGENTS[agent].label}?`,
+  });
+  if (!picked) return undefined;
+  return { skill: picked.some((item) => item.value === 'skill'), hooks: picked.some((item) => item.value === 'hooks') };
+}
+
+async function installPiPackage(update = false, source = PI_PACKAGE_SPEC) {
+  const check = await spawnAsync('pi', ['--version'], 15_000);
+  if (check.error) {
+    const choice = await vscode.window.showErrorMessage(
+      `The 'pi' command was not found. Install Pi first and run this setup again, or install the package yourself:\n\npi install ${PI_PACKAGE_SPEC}`,
+      { modal: true },
+      'Copy install command',
+    );
+    if (choice === 'Copy install command') vscode.env.clipboard.writeText(`pi install ${PI_PACKAGE_SPEC}`);
+    return { installed: false };
+  }
+
+  const action = update ? 'Update' : 'Install';
+  const args = [update ? 'update' : 'install', source];
+  const confirmed = await vscode.window.showInformationMessage(
+    `${action} the Pi package?\n\npi ${args.join(' ')}\n\nThe shared sender is already installed at ${agentSetup.senderPath(homeDir())}.`,
+    { modal: true },
+    action,
+  );
+  if (confirmed !== action) return { installed: false, cancelled: true };
+
+  return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Pi Flutter Bridge: ${action.toLowerCase()}ing Pi package` }, async () => {
+    const result = await spawnAsync('pi', args);
+    if (result.error) {
+      vscode.window.showErrorMessage(`pi ${args[0]} failed: ${result.stderr.trim() || errorMessage(result.error)}`);
+      return { installed: false };
+    }
+    return { installed: true, output: result.stdout };
+  });
+}
+
+async function setUpAgent(context, agent = undefined) {
+  ensureBridgeFiles(context);
+  const chosen = agent || await pickAgent('Set up Flutter refresh for which agent?');
+  if (!chosen) return;
+  const options = { homeDir: homeDir(), sourceRoot: context.extensionPath, extensionVersion: context.extension.packageJSON.version };
+
+  try {
+    if (chosen === 'pi') {
+      const status = agentSetup.piPackageStatus(options);
+      const result = await installPiPackage(status.installed, status.source || PI_PACKAGE_SPEC);
+      if (result.installed) {
+        vscode.window.showInformationMessage(
+          `Pi package ${status.installed ? 'updated' : 'installed'}.\n\nRun /reload in Pi, then start your Flutter app with Run/Debug in this window.`,
+          { modal: true },
+        );
+      }
+      return;
+    }
+
+    const components = await pickComponents(chosen);
+    if (!components) return;
+    if (!components.skill && !components.hooks) {
+      vscode.window.showInformationMessage('Nothing selected; no changes were made.', { modal: true });
+      return;
+    }
+
+    const label = WIZARD_AGENTS[chosen].label;
+    const plan = [];
+    if (components.skill) plan.push(`• skill → ${agentSetup.skillDirectory(chosen, homeDir())}`);
+    if (components.hooks) plan.push(`• automatic hooks → ${agentSetup.hooksFile(chosen, homeDir())} (only this bridge's entries are added)`);
+    const confirmed = await vscode.window.showInformationMessage(
+      `Set up Flutter refresh for ${label}?\n\n${plan.join('\n')}\n\nExisting settings are preserved; running this again is safe.`,
+      { modal: true },
+      'Install',
+    );
+    if (confirmed !== 'Install') return;
+
+    const summary = [];
+    if (components.skill) {
+      const skill = agentSetup.installSkill(chosen, options);
+      summary.push(skill.installed ? `skill ${skill.updated ? 'installed' : 'already up to date'} → ${skill.path}` : `skill SKIPPED: ${skill.reason}`);
+    }
+    if (components.hooks) {
+      try {
+        const hooks = agentSetup.addAgentHooks(chosen, options);
+        summary.push(`hooks ${hooks.changed.length > 0 ? `added (${hooks.changed.join(', ')})` : 'already configured'} → ${hooks.file}`);
+      } catch (error) {
+        summary.push(`hooks FAILED: ${errorMessage(error)}`);
+      }
+    }
+
+    const notes = chosen === 'codex'
+      ? '\n\nOpen Codex and run /hooks once to review and trust the new hooks; they do not run before that.'
+      : '\n\nRestart Claude Code sessions to load the new hooks.';
+    const choice = await vscode.window.showInformationMessage(
+      `${label} setup:\n\n${summary.map((line) => `• ${line}`).join('\n')}${notes}`,
+      { modal: true },
+      'Run Diagnostics',
+    );
+    if (choice === 'Run Diagnostics') diagnose(context);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Set Up Agent failed: ${errorMessage(error)}`, { modal: true });
+  }
+}
+
+function agentStillNeedsBridge(agent, home) {
+  if (agent === 'pi') return agentSetup.piPackageStatus({ homeDir: home }).installed;
+  return agentSetup.skillStatus(agent, { homeDir: home }) === 'ours' || agentSetup.hooksStatus(agent, { homeDir: home }).configured;
+}
+
+async function removeAgentIntegration(context) {
+  const agent = await pickAgent('Remove Flutter refresh integration for which agent?');
+  if (!agent) return;
+  const home = homeDir();
+  const options = { homeDir: home };
+  const label = WIZARD_AGENTS[agent].label;
+
+  try {
+    if (agent === 'pi') {
+      const status = agentSetup.piPackageStatus(options);
+      if (!status.installed) {
+        vscode.window.showInformationMessage(`The Pi package is not installed (${status.directory}).`, { modal: true });
+        return;
+      }
+      const confirmed = await vscode.window.showWarningMessage(
+        `Remove the Pi package?\n\npi remove ${status.source}\n\nThe shared sender and other agents are not affected. Run /reload in Pi afterwards.`,
+        { modal: true },
+        'Remove',
+      );
+      if (confirmed !== 'Remove') return;
+      const result = await spawnAsync('pi', ['remove', status.source]);
+      if (result.error) {
+        vscode.window.showErrorMessage(`pi remove failed: ${result.stderr.trim() || errorMessage(result.error)}`);
+        return;
+      }
+      vscode.window.showInformationMessage(`Removed ${status.source}. Run /reload in Pi.`, { modal: true });
+      return;
+    }
+
+    const plan = [];
+    const skillState = agentSetup.skillStatus(agent, options);
+    if (skillState === 'ours') plan.push(`• skill ${agentSetup.skillDirectory(agent, home)}`);
+    if (skillState === 'foreign') plan.push(`• skill ${agentSetup.skillDirectory(agent, home)} is foreign and will be left untouched`);
+    const hooks = agentSetup.hooksStatus(agent, options);
+    if (hooks.configured || hooks.invalid) plan.push(`• hook entries in ${hooks.file}${hooks.invalid ? ' (INVALID JSON — fix manually)' : ''}`);
+    if (plan.length === 0) {
+      vscode.window.showInformationMessage(`Nothing is installed for ${label}.`, { modal: true });
+      return;
+    }
+
+    const confirmed = await vscode.window.showWarningMessage(
+      `Remove Flutter refresh for ${label}?\n\n${plan.join('\n')}\n\nOnly pieces installed by this bridge are removed.`,
+      { modal: true },
+      'Remove',
+    );
+    if (confirmed !== 'Remove') return;
+
+    const summary = [];
+    const skill = agentSetup.removeSkill(agent, options);
+    if (skill.removed) summary.push(`skill removed (${skill.path})`);
+    else if (skill.reason !== 'not installed') summary.push(`skill kept: ${skill.reason}`);
+    try {
+      const removed = agentSetup.removeAgentHooks(agent, options);
+      if (removed.changed.length > 0) summary.push(`hook entries removed from ${removed.file}`);
+    } catch (error) {
+      summary.push(`hooks FAILED: ${errorMessage(error)}`);
+    }
+
+    const others = ['pi', 'codex', 'claude'].filter((other) => other !== agent).some((other) => agentStillNeedsBridge(other, home));
+    const bridge = agentSetup.bridgeStatus(options);
+    if (!others && bridge.senderInstalled) {
+      const removeSender = await vscode.window.showWarningMessage(
+        `No other agent uses the shared sender. Remove it too?\n\n${bridge.home}`,
+        { modal: true },
+        'Remove sender',
+      );
+      if (removeSender === 'Remove sender') {
+        agentSetup.removeBridgeHome(options);
+        summary.push(`shared sender removed (${bridge.home})`);
+      }
+    }
+    vscode.window.showInformationMessage(`${label} integration removed:\n\n${summary.map((line) => `• ${line}`).join('\n') || '• nothing to remove'}`, { modal: true });
+  } catch (error) {
+    vscode.window.showErrorMessage(`Remove integration failed: ${errorMessage(error)}`, { modal: true });
+  }
+}
+
+function diagnose(context) {
   const folder = commandFolder();
   const session = vscode.debug.activeDebugSession;
-  const details = [
-    `extension 0.2.0 / protocol ${PROTOCOL_VERSION}`,
+  let flutterWorkspace = false;
+  if (folder) {
+    try {
+      const root = folder.uri.fsPath;
+      const pubspec = fs.readFileSync(path.join(root, 'pubspec.yaml'), 'utf8');
+      flutterWorkspace = /^\s*flutter:\s*$/m.test(pubspec) || fs.existsSync(path.join(root, 'lib', 'main.dart'));
+    } catch {
+      // No pubspec.yaml in this workspace folder.
+    }
+  }
+  const lines = [
+    `extension ${context.extension.packageJSON.version} / protocol ${PROTOCOL_VERSION}`,
     `workspace: ${folder ? folder.uri.fsPath : 'none'}`,
+    `Flutter workspace: ${flutterWorkspace ? 'yes' : 'no'}`,
     `signal: ${folder ? vscode.Uri.joinPath(folder.uri, signalFile()).fsPath : 'unavailable'}`,
     `active debug session: ${session ? `${session.name} (${session.type})` : 'none'}`,
     `session workspace: ${session && session.workspaceFolder ? session.workspaceFolder.uri.fsPath : 'none'}`,
-  ].join(' | ');
-  show(details, session && folder && session.type === 'dart' && session.workspaceFolder
-    && samePath(session.workspaceFolder.uri.fsPath, folder.uri.fsPath) ? 'info' : 'warning');
+    `sender: ${diagnosticBridgeLines()}`,
+    `duplicates: ${duplicateExtensionLines().join(' ') || 'none'}`,
+  ];
+  channel().clear();
+  channel().appendLine(lines.join('\n'));
+  channel().show(true);
+  const healthy = Boolean(session && folder && session.type === 'dart' && session.workspaceFolder
+    && samePath(session.workspaceFolder.uri.fsPath, folder.uri.fsPath));
+  show(healthy ? 'diagnostics complete; see the Pi Flutter Refresh Bridge output'
+    : 'diagnostics found issues; see the Pi Flutter Refresh Bridge output', healthy ? 'info' : 'warning');
+}
+
+function detectLegacyCopies(context) {
+  try {
+    const extensionsDir = path.dirname(context.extensionPath);
+    return fs.readdirSync(extensionsDir)
+      .filter((name) => /^local\.pi-flutter-refresh-bridge-/.test(name)
+        && path.join(extensionsDir, name) !== context.extensionPath)
+      .map((name) => path.join(extensionsDir, name));
+  } catch {
+    return [];
+  }
+}
+
+async function offerLegacyCleanup(context) {
+  const legacy = detectLegacyCopies(context);
+  if (legacy.length === 0) return;
+  const choice = await vscode.window.showWarningMessage(
+    `Pi Flutter Bridge found old extension copies:\n\n${legacy.join('\n')}\n\nKeeping both copies causes duplicate refreshes.`,
+    'Remove old copies',
+  );
+  if (choice !== 'Remove old copies') return;
+  try {
+    for (const directory of legacy) fs.rmSync(directory, { recursive: true, force: true });
+    vscode.window.showInformationMessage('Old copies removed. Run Developer: Reload Window to finish.', { modal: true });
+  } catch (error) {
+    vscode.window.showErrorMessage(`Could not remove old copies: ${errorMessage(error)}`);
+  }
 }
 
 function activate(context) {
+  ensureBridgeFiles(context);
+  offerLegacyCleanup(context);
+
   context.subscriptions.push(
     vscode.commands.registerCommand('piFlutterRefreshBridge.hotReload', () => runManual('reload')),
     vscode.commands.registerCommand('piFlutterRefreshBridge.hotRestart', () => runManual('restart')),
-    vscode.commands.registerCommand('piFlutterRefreshBridge.diagnose', diagnose),
+    vscode.commands.registerCommand('piFlutterRefreshBridge.diagnose', () => diagnose(context)),
+    vscode.commands.registerCommand('piFlutterRefreshBridge.setUpAgent', () => setUpAgent(context)),
+    vscode.commands.registerCommand('piFlutterRefreshBridge.removeAgentIntegration', () => removeAgentIntegration(context)),
   );
 
   for (const folder of vscode.workspace.workspaceFolders || []) registerWatcher(context, folder);

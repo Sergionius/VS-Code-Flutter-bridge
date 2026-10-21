@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HELPER="$ROOT/pi/scripts/flutter_refresh.sh"
+HELPER="$ROOT/bridge/flutter_refresh.sh"
 TEMP_DIRS=()
 
 cleanup() {

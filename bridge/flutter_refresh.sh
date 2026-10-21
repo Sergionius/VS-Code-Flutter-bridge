@@ -10,8 +10,18 @@ case "$mode" in
     ;;
 esac
 
+# Resolve the Flutter project root: walk up from the working directory until a
+# pubspec.yaml is found, so agents started in a subdirectory still refresh the app.
+PROJECT_ROOT="$(pwd)"
+ORIGINAL_DIR="$PROJECT_ROOT"
+while [[ "$PROJECT_ROOT" != "/" && ! -f "$PROJECT_ROOT/pubspec.yaml" ]]; do
+  PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
+done
+[[ -f "$PROJECT_ROOT/pubspec.yaml" ]] || PROJECT_ROOT="$(pwd)"
+cd "$PROJECT_ROOT"
+
 if [[ ! -f "pubspec.yaml" ]]; then
-  echo "SKIPPED: pubspec.yaml not found in $(pwd)"
+  echo "SKIPPED: pubspec.yaml not found in or above $ORIGINAL_DIR" >&2
   exit 0
 fi
 
