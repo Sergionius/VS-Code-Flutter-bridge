@@ -148,6 +148,31 @@ test('addAgentHooks keeps a mixed matcher group but removes only its own hook ha
   assert.equal(after.hooks.Stop[0].hooks[0].command, 'echo foreign');
 });
 
+test('Claude manual commands install idempotently and leave foreign hooks untouched', (t) => {
+  const box = sandbox(t);
+  const options = { homeDir: box.home, sourceRoot: path.join(__dirname, '..') };
+  const file = setup.hooksFile('claude', box.home);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ hooks: { UserPromptExpansion: [
+    { matcher: 'other', hooks: [{ type: 'command', command: 'echo foreign' }] },
+  ] } }));
+  for (const name of setup.CLAUDE_MANUAL_SKILLS) {
+    assert.equal(setup.installSkill('claude', options, name).installed, true);
+  }
+  assert.equal(setup.addClaudeManualHook(options).changed, true);
+  assert.equal(setup.addClaudeManualHook(options).changed, false);
+  assert.equal(setup.claudeManualStatus(options).configured, true);
+  assert.deepEqual(setup.claudeManualStatus(options).skills, ['ours', 'ours']);
+  assert.equal(readJson(file).hooks.UserPromptExpansion.length, 2);
+  assert.equal(setup.hooksStatus('claude', options).configured, false);
+  assert.equal(setup.removeClaudeManualHook(options).changed, true);
+  assert.equal(setup.removeClaudeManualHook(options).changed, false);
+  for (const name of setup.CLAUDE_MANUAL_SKILLS) {
+    assert.equal(setup.removeSkill('claude', options, name).removed, true);
+  }
+  assert.equal(readJson(file).hooks.UserPromptExpansion[0].hooks[0].command, 'echo foreign');
+});
+
 test('invalid JSON settings abort without modifying the file', (t) => {
   const box = sandbox(t);
   const settingsFile = path.join(box.home, '.claude', 'settings.json');

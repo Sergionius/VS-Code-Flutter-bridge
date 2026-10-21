@@ -348,9 +348,11 @@ function agentDiagnosticLines() {
     const skill = agentSetup.skillStatus(agent, { homeDir: home });
     const hooks = agentSetup.hooksStatus(agent, { homeDir: home });
     const skillState = skill === 'ours' ? 'OK' : skill === 'foreign' ? 'FOREIGN (not managed by this bridge)' : 'not installed';
-    lines.push(`${label} skill: ${skillState} (${agentSetup.skillDirectory(agent, home)})${agent === 'claude' && skill === 'ours' ? ' — manual requests require a shell tool' : ''}`);
+    lines.push(`${label} skill: ${skillState} (${agentSetup.skillDirectory(agent, home)})${agent === 'claude' && skill === 'ours' ? ' — legacy /flutter-refresh requires Bash' : ''}`);
     lines.push(`${label} hooks: ${hooks.invalid ? 'INVALID JSON (fix manually)' : hooks.configured ? 'OK' : 'not configured'} (${hooks.file})`);
   }
+  const manual = agentSetup.claudeManualStatus({ homeDir: home });
+  lines.push(`Claude Code manual commands: ${manual.invalid ? 'INVALID JSON' : manual.configured && manual.skills.every((state) => state === 'ours') ? 'OK' : 'not installed'} (/flutter-reload, /flutter-restart)`);
   return lines;
 }
 
@@ -387,7 +389,7 @@ function ensureBridgeFiles(context) {
 const WIZARD_AGENTS = {
   pi: { label: 'Pi', detail: 'Automatic refresh through the Pi package (runs pi install).' },
   codex: { label: 'Codex', detail: 'Skill in ~/.codex/skills + optional automatic hooks in ~/.codex/hooks.json (trust them via /hooks in Codex).' },
-  claude: { label: 'Claude Code', detail: 'Skill in ~/.claude/skills + optional automatic hooks in ~/.claude/settings.json.' },
+  claude: { label: 'Claude Code', detail: 'Skill + manual slash-command hooks; optional automatic hooks in ~/.claude/settings.json.' },
 };
 
 async function pickAgent(placeHolder) {
@@ -398,7 +400,7 @@ async function pickAgent(placeHolder) {
 
 async function pickComponents(agent) {
   const items = [
-    { label: 'flutter-refresh skill', picked: true, value: 'skill', detail: 'Rules for choosing reload or restart and calling the shared sender.' },
+    { label: agent === 'claude' ? 'flutter-refresh skill + /flutter-reload and /flutter-restart' : 'flutter-refresh skill', picked: true, value: 'skill', detail: agent === 'claude' ? 'Manual commands use a host hook even without model-accessible Bash.' : 'Rules for choosing reload or restart and calling the shared sender.' },
     { label: 'Automatic hooks', picked: false, value: 'hooks', detail: 'PostToolUse + Stop events run the refresh automatically at the end of each turn.' },
   ];
   const picked = await vscode.window.showQuickPick(items, {
@@ -468,7 +470,10 @@ async function setUpAgent(context, agent = undefined) {
 
     const label = WIZARD_AGENTS[chosen].label;
     const plan = [];
-    if (components.skill) plan.push(`• skill → ${agentSetup.skillDirectory(chosen, homeDir())}`);
+    if (components.skill) {
+      plan.push(`• skill → ${agentSetup.skillDirectory(chosen, homeDir())}`);
+      if (chosen === 'claude') plan.push(`• manual /flutter-reload and /flutter-restart → ~/.claude/skills/ + UserPromptExpansion hook in ${agentSetup.hooksFile(chosen, homeDir())}`);
+    }
     if (components.hooks) plan.push(`• automatic hooks → ${agentSetup.hooksFile(chosen, homeDir())} (only this bridge's entries are added)`);
     const confirmed = await vscode.window.showInformationMessage(
       `Set up Flutter refresh for ${label}?\n\n${plan.join('\n')}\n\nExisting settings are preserved; running this again is safe.`,
@@ -481,6 +486,15 @@ async function setUpAgent(context, agent = undefined) {
     if (components.skill) {
       const skill = agentSetup.installSkill(chosen, options);
       summary.push(skill.installed ? `skill ${skill.updated ? 'installed' : 'already up to date'} → ${skill.path}` : `skill SKIPPED: ${skill.reason}`);
+      if (chosen === 'claude') {
+        try {
+          const manual = agentSetup.addClaudeManualHook(options);
+          const results = agentSetup.CLAUDE_MANUAL_SKILLS.map((name) => agentSetup.installSkill('claude', options, name));
+          summary.push(`manual commands ${results.every((result) => result.installed) ? (manual.changed ? 'installed' : 'updated') : 'partly skipped (foreign skill exists)'} → /flutter-reload, /flutter-restart`);
+        } catch (error) {
+          summary.push(`manual commands FAILED: ${errorMessage(error)}`);
+        }
+      }
     }
     if (components.hooks) {
       try {
@@ -507,7 +521,9 @@ async function setUpAgent(context, agent = undefined) {
 
 function agentStillNeedsBridge(agent, home) {
   if (agent === 'pi') return agentSetup.piPackageStatus({ homeDir: home }).installed;
-  return agentSetup.skillStatus(agent, { homeDir: home }) === 'ours' || agentSetup.hooksStatus(agent, { homeDir: home }).configured;
+  return agentSetup.skillStatus(agent, { homeDir: home }) === 'ours' || agentSetup.hooksStatus(agent, { homeDir: home }).configured
+    || (agent === 'claude' && (agentSetup.claudeManualStatus({ homeDir: home }).configured
+      || agentSetup.claudeManualStatus({ homeDir: home }).skills.includes('ours')));
 }
 
 async function removeAgentIntegration(context) {
@@ -545,6 +561,13 @@ async function removeAgentIntegration(context) {
     if (skillState === 'foreign') plan.push(`• skill ${agentSetup.skillDirectory(agent, home)} is foreign and will be left untouched`);
     const hooks = agentSetup.hooksStatus(agent, options);
     if (hooks.configured || hooks.invalid) plan.push(`• hook entries in ${hooks.file}${hooks.invalid ? ' (INVALID JSON — fix manually)' : ''}`);
+    if (agent === 'claude') {
+      const manual = agentSetup.claudeManualStatus(options);
+      for (const [index, name] of agentSetup.CLAUDE_MANUAL_SKILLS.entries()) {
+        if (manual.skills[index] === 'ours') plan.push(`• manual skill ${agentSetup.skillDirectory(agent, home, name)}`);
+      }
+      if (manual.configured) plan.push(`• manual command hook in ${manual.file}`);
+    }
     if (plan.length === 0) {
       vscode.window.showInformationMessage(`Nothing is installed for ${label}.`, { modal: true });
       return;
@@ -564,6 +587,14 @@ async function removeAgentIntegration(context) {
     try {
       const removed = agentSetup.removeAgentHooks(agent, options);
       if (removed.changed.length > 0) summary.push(`hook entries removed from ${removed.file}`);
+      if (agent === 'claude') {
+        const manual = agentSetup.removeClaudeManualHook(options);
+        if (manual.changed) summary.push(`manual command hook removed from ${manual.file}`);
+        for (const name of agentSetup.CLAUDE_MANUAL_SKILLS) {
+          const result = agentSetup.removeSkill(agent, options, name);
+          if (result.removed) summary.push(`manual skill removed (${result.path})`);
+        }
+      }
     } catch (error) {
       summary.push(`hooks FAILED: ${errorMessage(error)}`);
     }
