@@ -1,5 +1,7 @@
 # Flutter Agent Refresh
 
+<p align="center"><img src="assets/preview.png" alt="Terminal and mobile app connected by neon refresh arrows" width="360"></p>
+
 VS Code extension that lets coding agents refresh a running Flutter app with a confirmed hot reload or hot restart. One shared sender and one setup wizard serve three agents: [Pi](https://pi.dev), Codex CLI, and Claude Code. The extension is not published to the VS Code Marketplace yet; see [Install](#install).
 
 ## How it works
@@ -25,7 +27,7 @@ The bridge watches a workspace-local file under `.dart_tool`, so requests should
 git clone https://github.com/Sergionius/flutter-agent-refresh.git
 cd flutter-agent-refresh
 npx @vscode/vsce package
-code --install-extension flutter-agent-refresh-0.5.1.vsix
+code --install-extension flutter-agent-refresh-0.5.2.vsix
 ```
 
 Requires VS Code 1.80+, the Dart/Flutter extension, Bash, Python 3, and Node.js 22.19+ for development. The Pi integration additionally requires the `pi` CLI.

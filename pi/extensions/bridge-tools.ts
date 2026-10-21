@@ -39,7 +39,7 @@ export async function syncVsCodeBridge(options: { extensionsDir?: string } = {})
     await mkdir(temporary);
     // The legacy sync command remains usable for source installs. Copy every
     // runtime dependency of extension.js, not just the extension entry point.
-    for (const file of ["package.json", "extension.js", "README.md", "LICENSE", "CHANGELOG.md", "lib", "bridge", "templates"]) {
+    for (const file of ["package.json", "extension.js", "README.md", "LICENSE", "CHANGELOG.md", "lib", "bridge", "templates", "assets"]) {
       await cp(join(ROOT, file), join(temporary, file), { recursive: true });
     }
     const copied = await manifest(temporary);
